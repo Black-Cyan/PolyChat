@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+}
+
+group = 'top.blackcyan'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    maven { url 'https://maven.aliyun.com/repository/public/' }
+    maven { url 'https://maven.aliyun.com/repository/gradle-plugin/' }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.xerial:sqlite-jdbc:3.51.1.0'
+    implementation 'com.formdev:flatlaf:3.5'
+    implementation 'com.formdev:flatlaf-intellij-themes:3.5'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
