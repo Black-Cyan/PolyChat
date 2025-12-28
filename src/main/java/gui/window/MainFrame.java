@@ -55,9 +55,6 @@ public class MainFrame extends JFrame {
         JButton btnCreate = new SidebarButton("创建模型");
         JButton btnImport = new SidebarButton("导入模型");
 
-        styleMenuButton(btnCreate);
-        styleMenuButton(btnImport);
-
         btnCreate.addActionListener(e -> {
             NewModelDialog dialog = new NewModelDialog(this, modelDAO);
             dialog.setVisible(true);
@@ -77,22 +74,6 @@ public class MainFrame extends JFrame {
         menu.add(Box.createVerticalGlue());
 
         return menu;
-    }
-
-    private void styleMenuButton(JButton button) {
-        button.setAlignmentX(Component.LEFT_ALIGNMENT);
-        button.setHorizontalAlignment(SwingConstants.LEFT);
-        button.setIconTextGap(10);
-        button.setMaximumSize(new Dimension(200, 46));
-        button.setPreferredSize(new Dimension(200, 46));
-        button.setFocusPainted(false);
-        button.setForeground(Color.WHITE);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        button.setMargin(new Insets(4, 4, 4, 4));
-        button.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
-        button.putClientProperty("JButton.buttonType", "roundRect");
-
-
     }
 
     // ========== 内容面板 ==========
@@ -149,14 +130,14 @@ public class MainFrame extends JFrame {
         SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
     }
 
-    //========== 侧边栏按钮 ==========
+    // ========== 侧边栏按钮 ==========
     private static class SidebarButton extends JButton {
         private static final Color BASE = new Color(0x3d7bfd);
         private static final Color HOVER = new Color(0x4c88ff);
         private static final Color PRESSED = new Color(0x2c6ae0);
         private static final int ARC = 14;
 
-        SidebarButton(String text) {
+        public SidebarButton(String text) {
             super(text);
             setContentAreaFilled(false);
             setFocusPainted(false);

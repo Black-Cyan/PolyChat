@@ -36,7 +36,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("模型名称:"), gbc);
         tfModelName = new JTextField();
         tfModelName.setColumns(25);
-        tfModelName.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfModelName, gbc);
 
@@ -45,7 +44,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("昵称:"), gbc);
         tfNickname = new JTextField();
         tfNickname.setColumns(25);
-        tfNickname.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfNickname, gbc);
 
@@ -54,7 +52,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("Base URL:"), gbc);
         tfBaseUrl = new JTextField();
         tfBaseUrl.setColumns(25);
-        tfBaseUrl.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfBaseUrl, gbc);
 
@@ -63,7 +60,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("API Key:"), gbc);
         tfApiKey = new JTextField();
         tfApiKey.setColumns(25);
-        tfApiKey.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfApiKey, gbc);
 
@@ -76,9 +72,7 @@ public class NewModelDialog extends JDialog {
         JButton btnOk = new JButton("确定");
         JButton btnCancel = new JButton("取消");
 
-        btnOk.putClientProperty("JButton.buttonType", "roundRect");
         btnOk.putClientProperty("FlatLaf.style", "background: #3d7bfd; foreground: #ffffff; arc: 12; hoverBackground: #4c88ff; pressedBackground: #2c6ae0; focusWidth: 0;");
-        btnCancel.putClientProperty("JButton.buttonType", "roundRect");
         btnCancel.putClientProperty("FlatLaf.style", "background: darken(@background,5%); foreground: @foreground; arc: 12; hoverBackground: darken(@background,8%);");
 
         btnPanel.add(btnOk);

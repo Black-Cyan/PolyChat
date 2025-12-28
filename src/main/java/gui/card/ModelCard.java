@@ -84,37 +84,41 @@ public class ModelCard extends JPanel {
     }
 
     private void addHoverEffect() {
-        addMouseListener(new MouseAdapter() {
+        MouseAdapter hoverAdapter = new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 content.putClientProperty("FlatLaf.style", """
                     arc: 18;
                     background: darken(@background, 6%);
-                 """);
+                """);
                 setCardBorder(new Color(0x505458));
                 content.revalidate();
                 content.repaint();
-             }
+            }
 
-             @Override
-             public void mouseExited(MouseEvent e) {
-                 content.putClientProperty("FlatLaf.style", """
-                     arc: 18;
-                     background: darken(@background, 3%);
-                  """);
-                 setCardBorder(new Color(0x3c3f41));
-                 content.revalidate();
-                 content.repaint();
-             }
+            @Override
+            public void mouseExited(MouseEvent e) {
+            content.putClientProperty("FlatLaf.style", """
+                arc: 18;
+                background: darken(@background, 3%);
+            """);
+            setCardBorder(new Color(0x3c3f41));
+            content.revalidate();
+            content.repaint();
+            }
 
             @Override
             public void mouseClicked(MouseEvent e) {
+                // TODO: 打开模型逻辑
                 JOptionPane.showMessageDialog(
                         ModelCard.this,
                         "打开模型：" + model.getModelName()
                 );
             }
-        });
+        };
+
+        addMouseListener(hoverAdapter);
+        content.addMouseListener(hoverAdapter);
     }
 
     private void addRightClickMenu() {
@@ -127,17 +131,7 @@ public class ModelCard extends JPanel {
         JMenuItem[] items = { editItem, deleteItem, exportItem };
         for (JMenuItem item : items) {
             item.setHorizontalAlignment(SwingConstants.CENTER);
-            item.setOpaque(true);
-            item.setBackground(UIManager.getColor("PopupMenu.background"));
-            item.setForeground(UIManager.getColor("PopupMenu.foreground"));
             item.setBorder(BorderFactory.createEmptyBorder(4, 16, 4, 16));
-
-            item.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) { item.setBackground(darken(UIManager.getColor("PopupMenu.background"), 0.05f)); }
-                @Override
-                public void mouseExited(MouseEvent e) { item.setBackground(UIManager.getColor("PopupMenu.background")); }
-            });
 
             popupMenu.add(item);
         }
@@ -173,13 +167,6 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) popupMenu.show(e.getComponent(), e.getX(), e.getY()); }
         });
-    }
-
-    private Color darken(Color color, float fraction) {
-        int r = Math.max((int) (color.getRed() * (1 - fraction)), 0);
-        int g = Math.max((int) (color.getGreen() * (1 - fraction)), 0);
-        int b = Math.max((int) (color.getBlue() * (1 - fraction)), 0);
-        return new Color(r, g, b, color.getAlpha());
     }
 
     private void setCardBorder(Color lineColor) {
