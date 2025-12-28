@@ -7,6 +7,7 @@ import core.util.DBUtil;
 import core.util.ModelDAO;
 import gui.card.ModelCard;
 import gui.dialog.NewModelDialog;
+import gui.dialog.ImportModelDialog;
 
 import javax.swing.*;
 import java.awt.*;
@@ -27,6 +28,7 @@ public class MainFrame extends JFrame {
         setSize(1000, 650);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false);
         setLayout(new BorderLayout());
 
         // 初始化数据库 DAO
@@ -62,9 +64,8 @@ public class MainFrame extends JFrame {
         });
 
         btnImport.addActionListener(e -> {
-            // TODO: 打开导入模型逻辑
-            JOptionPane.showMessageDialog(this, "这里弹出导入模型窗口");
-            refreshModelList();
+            ImportModelDialog dialog = new ImportModelDialog(this, modelDAO, this::refreshModelList);
+            dialog.setVisible(true);
         });
 
         menu.add(Box.createVerticalStrut(20));

@@ -20,6 +20,7 @@ public class NewModelDialog extends JDialog {
 
         setSize(450, 320);
         setLocationRelativeTo(parent);
+        setResizable(false);
         setLayout(new BorderLayout(12, 12));
 
         JPanel panel = new JPanel(new GridBagLayout());

@@ -23,6 +23,7 @@ public class EditModelDialog extends JDialog {
 
         setSize(450, 280);
         setLocationRelativeTo(parent);
+        setResizable(false);
         setLayout(new BorderLayout(10, 10));
 
         // ==================== 主表单 ====================

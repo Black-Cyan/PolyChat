@@ -3,6 +3,7 @@ package gui.card;
 import core.entity.Model;
 import core.util.ModelDAO;
 import gui.dialog.EditModelDialog;
+import gui.dialog.ExportModelDialog;
 
 import javax.swing.*;
 import java.awt.*;
@@ -162,6 +163,11 @@ public class ModelCard extends JPanel {
                  }
              }
          });
+
+        exportItem.addActionListener(e -> {
+            ExportModelDialog dialog = new ExportModelDialog(parent, modelDAO, model);
+            dialog.setVisible(true);
+        });
 
         content.addMouseListener(new MouseAdapter() {
             @Override
