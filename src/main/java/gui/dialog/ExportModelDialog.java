@@ -64,7 +64,7 @@ public class ExportModelDialog extends JDialog {
 
         btnBrowse.addActionListener(e -> openFileChooser());
 
-        btnOk.addActionListener(e -> {
+        btnOk.addActionListener(event -> {
             String path = tfFilePath.getText().trim();
             if (path.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "请选择保存文件路径");
@@ -90,9 +90,9 @@ public class ExportModelDialog extends JDialog {
                 ModelIOUtil.writeModel(file, payload);
                 JOptionPane.showMessageDialog(this, "已导出到: " + file.getAbsolutePath());
                 dispose();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, "导出失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "导出失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
         });
 
