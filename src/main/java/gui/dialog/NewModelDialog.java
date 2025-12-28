@@ -1,7 +1,6 @@
 package gui.dialog;
 
 import core.util.ModelDAO;
-import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import java.awt.*;
@@ -21,11 +20,12 @@ public class NewModelDialog extends JDialog {
 
         setSize(450, 320);
         setLocationRelativeTo(parent);
+        setResizable(false);
         setLayout(new BorderLayout(12, 12));
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        panel.putClientProperty("FlatLaf.style", "background: #f5f5f5; arc: 12;");
+        panel.putClientProperty("FlatLaf.style", "background: @background; arc: 12;");
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(8, 8, 8, 8);
@@ -37,7 +37,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("模型名称:"), gbc);
         tfModelName = new JTextField();
         tfModelName.setColumns(25);
-        tfModelName.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfModelName, gbc);
 
@@ -46,7 +45,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("昵称:"), gbc);
         tfNickname = new JTextField();
         tfNickname.setColumns(25);
-        tfNickname.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfNickname, gbc);
 
@@ -55,7 +53,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("Base URL:"), gbc);
         tfBaseUrl = new JTextField();
         tfBaseUrl.setColumns(25);
-        tfBaseUrl.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfBaseUrl, gbc);
 
@@ -64,7 +61,6 @@ public class NewModelDialog extends JDialog {
         panel.add(new JLabel("API Key:"), gbc);
         tfApiKey = new JTextField();
         tfApiKey.setColumns(25);
-        tfApiKey.putClientProperty("JComponent.roundRect", true);
         gbc.gridx = 1;
         panel.add(tfApiKey, gbc);
 
@@ -77,10 +73,8 @@ public class NewModelDialog extends JDialog {
         JButton btnOk = new JButton("确定");
         JButton btnCancel = new JButton("取消");
 
-        btnOk.putClientProperty("JButton.buttonType", "roundRect");
-        btnOk.putClientProperty("FlatLaf.style", "background: #2b73ff; foreground: #ffffff; arc: 12; hoverBackground: #5393ff;");
-        btnCancel.putClientProperty("JButton.buttonType", "roundRect");
-        btnCancel.putClientProperty("FlatLaf.style", "background: #cccccc; foreground: #000000; arc: 12; hoverBackground: #dddddd;");
+        btnOk.putClientProperty("FlatLaf.style", "background: #3d7bfd; foreground: #ffffff; arc: 12; hoverBackground: #4c88ff; pressedBackground: #2c6ae0; focusWidth: 0;");
+        btnCancel.putClientProperty("FlatLaf.style", "background: darken(@background,5%); foreground: @foreground; arc: 12; hoverBackground: darken(@background,8%);");
 
         btnPanel.add(btnOk);
         btnPanel.add(btnCancel);

@@ -4,8 +4,6 @@ package gui.dialog;
 import core.util.ModelDAO;
 import core.entity.Model;
 
-import com.formdev.flatlaf.FlatLightLaf;
-
 import javax.swing.*;
 import java.awt.*;
 
@@ -25,11 +23,13 @@ public class EditModelDialog extends JDialog {
 
         setSize(450, 280);
         setLocationRelativeTo(parent);
+        setResizable(false);
         setLayout(new BorderLayout(10, 10));
 
         // ==================== 主表单 ====================
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
+        panel.putClientProperty("FlatLaf.style", "background: @background; arc: 12;");
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6,6,6,6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -86,6 +86,9 @@ public class EditModelDialog extends JDialog {
         btnPanel.add(btnOk);
         btnPanel.add(btnCancel);
         add(btnPanel, BorderLayout.SOUTH);
+
+        btnOk.putClientProperty("FlatLaf.style", "background: #3d7bfd; foreground: #ffffff; arc: 12; hoverBackground: #4c88ff; pressedBackground: #2c6ae0; focusWidth: 0;");
+        btnCancel.putClientProperty("FlatLaf.style", "background: darken(@background,5%); foreground: @foreground; arc: 12; hoverBackground: darken(@background,8%);");
 
         btnOk.addActionListener(e -> {
             String modelName = tfModelName.getText().trim();

@@ -1,12 +1,13 @@
 package gui.window;
 
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.intellijthemes.FlatArcDarkIJTheme;
+
 import core.entity.Model;
 import core.util.DBUtil;
 import core.util.ModelDAO;
 import gui.card.ModelCard;
 import gui.dialog.NewModelDialog;
+import gui.dialog.ImportModelDialog;
 
 import javax.swing.*;
 import java.awt.*;
@@ -27,6 +28,7 @@ public class MainFrame extends JFrame {
         setSize(1000, 650);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false);
         setLayout(new BorderLayout());
 
         // 初始化数据库 DAO
@@ -46,16 +48,14 @@ public class MainFrame extends JFrame {
     // ========== 侧边菜单 ==========
     private JPanel createSideMenu() {
         JPanel menu = new JPanel();
-        menu.setPreferredSize(new Dimension(180, 0));
+        menu.setPreferredSize(new Dimension(200, 0));
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
+        menu.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        menu.putClientProperty("FlatLaf.style", "background: #e5f0ff;");
+        menu.putClientProperty("FlatLaf.style", "background: darken(@background, 6%);");
 
-        JButton btnCreate = new JButton("➕ 创建模型");
-        JButton btnImport = new JButton("📂 导入模型");
-
-        styleMenuButton(btnCreate);
-        styleMenuButton(btnImport);
+        JButton btnCreate = new SidebarButton("创建模型");
+        JButton btnImport = new SidebarButton("导入模型");
 
         btnCreate.addActionListener(e -> {
             NewModelDialog dialog = new NewModelDialog(this, modelDAO);
@@ -64,35 +64,17 @@ public class MainFrame extends JFrame {
         });
 
         btnImport.addActionListener(e -> {
-            // TODO: 打开导入模型逻辑
-            JOptionPane.showMessageDialog(this, "这里弹出导入模型窗口");
-            refreshModelList();
+            ImportModelDialog dialog = new ImportModelDialog(this, modelDAO, this::refreshModelList);
+            dialog.setVisible(true);
         });
 
         menu.add(Box.createVerticalStrut(20));
         menu.add(btnCreate);
-        menu.add(Box.createVerticalStrut(10));
+        menu.add(Box.createVerticalStrut(12));
         menu.add(btnImport);
         menu.add(Box.createVerticalGlue());
 
         return menu;
-    }
-
-    private void styleMenuButton(JButton button) {
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setMaximumSize(new Dimension(160, 40));
-        button.setFocusPainted(false);
-        button.setForeground(Color.WHITE);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-        button.putClientProperty("FlatLaf.style", """
-            background: #0078d7;
-            hoverBackground: #0090ff;
-            pressedBackground: #005ea6;
-            foreground: #ffffff;
-            arc: 12;
-        """);
-
     }
 
     // ========== 内容面板 ==========
@@ -115,6 +97,9 @@ public class MainFrame extends JFrame {
         scrollPane = new JScrollPane(modelListPanel);
         scrollPane.putClientProperty("FlatLaf.style", "border: null; background: @background;");
         scrollPane.setBorder(null);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(24);
 
         refreshModelList();
 
@@ -139,21 +124,58 @@ public class MainFrame extends JFrame {
 
     // ========== 主函数 ==========
     public static void main(String[] args) {
-        FlatLightLaf.setup();
-
-        UIManager.put("Component.focusColor", new Color(0, 120, 215));
-        UIManager.put("Button.background", new Color(0, 120, 215));
-        UIManager.put("Button.foreground", Color.WHITE);
-        UIManager.put("Button.hoverBackground", new Color(0, 150, 255));
-        UIManager.put("Button.pressedBackground", new Color(0, 100, 200));
-        UIManager.put("Panel.background", Color.WHITE);
-        UIManager.put("ScrollBar.thumb", new Color(0, 120, 215));
+        FlatArcDarkIJTheme.setup();
 
         UIManager.put("Component.arc", 12);
-        UIManager.put("Button.arc", 12);
+        UIManager.put("Button.arc", 14);
         UIManager.put("TextComponent.arc", 12);
         UIManager.put("ScrollBar.width", 10);
 
         SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
+    }
+
+    // ========== 侧边栏按钮 ==========
+    private static class SidebarButton extends JButton {
+        private static final Color ACCENT = new Color(0x5fafff);
+        private static final Color HOVER_FILL = new Color(0x5fafff80, true);
+        private static final Color PRESSED_FILL = new Color(0x5fafffb3, true);
+        private static final Color BORDER = new Color(0x1D1D1D);
+        private static final Color TEXT = new Color(0xdde7ff);
+        private static final int ARC = 14;
+
+        public SidebarButton(String text) {
+            super(text);
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setOpaque(false);
+            setForeground(TEXT);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setMargin(new Insets(4, 4, 4, 4));
+            setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+            setHorizontalAlignment(SwingConstants.LEFT);
+            setIconTextGap(10);
+            setMaximumSize(new Dimension(200, 46));
+            setPreferredSize(new Dimension(200, 46));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            ButtonModel m = getModel();
+            Color fill = null;
+            if (m.isPressed()) fill = PRESSED_FILL;
+            else if (m.isRollover()) fill = HOVER_FILL;
+            if (fill != null) {
+                g2.setColor(fill);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
+            }
+            g2.setColor(BORDER);
+            g2.setStroke(new BasicStroke(1.2f));
+            g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, ARC, ARC);
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
 }

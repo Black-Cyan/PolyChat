@@ -3,11 +3,13 @@ package gui.card;
 import core.entity.Model;
 import core.util.ModelDAO;
 import gui.dialog.EditModelDialog;
+import gui.dialog.ExportModelDialog;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.border.LineBorder;
 
 public class ModelCard extends JPanel {
 
@@ -23,33 +25,50 @@ public class ModelCard extends JPanel {
 
         setLayout(new BorderLayout());
         setOpaque(false);
-        setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
         content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
-
+        content.setLayout(new BorderLayout(0, 10));
         content.putClientProperty("FlatLaf.style", """
             arc: 18;
-            background: #ffffff;
-            border: 1,1,1,1,#e3e3e3;
+            background: darken(@background, 3%);
         """);
+        setCardBorder(new Color(0x3c3f41));
+
+        JPanel header = new JPanel(new BorderLayout(10, 0));
+        header.setOpaque(false);
+
+        JLabel icon = new JLabel(UIManager.getIcon("FileView.computerIcon"));
+        icon.putClientProperty("FlatLaf.style", "foreground: #4c88ff;");
+
+        JPanel titleBox = new JPanel();
+        titleBox.setOpaque(false);
+        titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel(model.getNickname().isEmpty() ? model.getModelName() : model.getNickname());
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 17f));
-        title.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
 
-        JLabel description = new JLabel("<html><body style='width:280px'>" + model.getModelName() + "</body></html>");
-        description.setForeground(new Color(120, 120, 120));
+        JLabel subtitle = new JLabel(model.getModelName());
+        subtitle.setForeground(UIManager.getColor("Component.infoForeground"));
+        subtitle.setFont(subtitle.getFont().deriveFont(13f));
+
+        titleBox.add(title);
+        titleBox.add(subtitle);
+
+        header.add(icon, BorderLayout.WEST);
+        header.add(titleBox, BorderLayout.CENTER);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JLabel description = new JLabel("Base URL: " + model.getBaseUrl());
+        description.setForeground(UIManager.getColor("Component.infoForeground"));
         description.setFont(description.getFont().deriveFont(13f));
-        description.setBorder(BorderFactory.createEmptyBorder(0, 16, 16, 16));
-        description.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(description, BorderLayout.CENTER);
 
-
-        content.add(title);
-        content.add(description);
+        content.add(header, BorderLayout.NORTH);
+        content.add(body, BorderLayout.CENTER);
 
         add(content, BorderLayout.CENTER);
 
@@ -58,58 +77,54 @@ public class ModelCard extends JPanel {
     }
 
     private void addHoverEffect() {
-        addMouseListener(new MouseAdapter() {
+        MouseAdapter hoverAdapter = new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 content.putClientProperty("FlatLaf.style", """
                     arc: 18;
-                    background: #f5f7fa;
-                    border: 1,1,1,1,#cfd8dc;
+                    background: darken(@background, 6%);
                 """);
+                setCardBorder(new Color(0x505458));
+                content.revalidate();
                 content.repaint();
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                content.putClientProperty("FlatLaf.style", """
-                    arc: 18;
-                    background: #ffffff;
-                    border: 1,1,1,1,#e3e3e3;
-                """);
-                content.repaint();
+            content.putClientProperty("FlatLaf.style", """
+                arc: 18;
+                background: darken(@background, 3%);
+            """);
+            setCardBorder(new Color(0x3c3f41));
+            content.revalidate();
+            content.repaint();
             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
+                // TODO: 打开模型逻辑
                 JOptionPane.showMessageDialog(
                         ModelCard.this,
                         "打开模型：" + model.getModelName()
                 );
             }
-        });
+        };
+
+        addMouseListener(hoverAdapter);
+        content.addMouseListener(hoverAdapter);
     }
 
     private void addRightClickMenu() {
         JPopupMenu popupMenu = new JPopupMenu();
 
-        JMenuItem editItem = new JMenuItem("编辑", UIManager.getIcon("FileView.fileIcon"));
-        JMenuItem deleteItem = new JMenuItem("删除", UIManager.getIcon("TabbedPane.closeIcon"));
-        JMenuItem exportItem = new JMenuItem("导出", UIManager.getIcon("FileView.floppyDriveIcon"));
+        JMenuItem editItem = new JMenuItem("编辑", new ImageIcon(ModelCard.class.getResource("/images/edit.png")));
+        JMenuItem deleteItem = new JMenuItem("删除", new ImageIcon(ModelCard.class.getResource("/images/delete.png")));
+        JMenuItem exportItem = new JMenuItem("导出", new ImageIcon(ModelCard.class.getResource("/images/export.png")));
 
         JMenuItem[] items = { editItem, deleteItem, exportItem };
         for (JMenuItem item : items) {
             item.setHorizontalAlignment(SwingConstants.CENTER);
-            item.setOpaque(true);
-            item.setBackground(Color.WHITE);
-            item.setForeground(Color.DARK_GRAY);
             item.setBorder(BorderFactory.createEmptyBorder(4, 16, 4, 16));
-
-            item.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) { item.setBackground(new Color(220, 235, 255)); }
-                @Override
-                public void mouseExited(MouseEvent e) { item.setBackground(Color.WHITE); }
-            });
 
             popupMenu.add(item);
         }
@@ -129,14 +144,29 @@ public class ModelCard extends JPanel {
             );
             if(confirm == JOptionPane.YES_OPTION) {
                 modelDAO.deleteModel(model.getUuid());
-                JOptionPane.showMessageDialog(parent, "删除成功！");
                 Container parentContainer = ModelCard.this.getParent();
                 if(parentContainer != null) {
+                    Component[] comps = parentContainer.getComponents();
+                    int idx = -1;
+                    for (int i = 0; i < comps.length; i++) {
+                        if (comps[i] == ModelCard.this) { idx = i; break; }
+                    }
                     parentContainer.remove(ModelCard.this);
+                    if (idx >= 0 && idx < parentContainer.getComponentCount()) {
+                        Component maybeStrut = parentContainer.getComponent(idx);
+                        if (maybeStrut instanceof Box.Filler) {
+                            parentContainer.remove(maybeStrut);
+                        }
+                    }
                     parentContainer.revalidate();
                     parentContainer.repaint();
-                }
-            }
+                 }
+             }
+         });
+
+        exportItem.addActionListener(e -> {
+            ExportModelDialog dialog = new ExportModelDialog(parent, modelDAO, model);
+            dialog.setVisible(true);
         });
 
         content.addMouseListener(new MouseAdapter() {
@@ -145,5 +175,12 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) popupMenu.show(e.getComponent(), e.getX(), e.getY()); }
         });
+    }
+
+    private void setCardBorder(Color lineColor) {
+        content.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(lineColor, 1, true),
+                BorderFactory.createEmptyBorder(16, 18, 16, 18)
+        ));
     }
 }
