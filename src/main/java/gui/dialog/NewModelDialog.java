@@ -94,19 +94,10 @@ public class NewModelDialog extends JDialog {
 
         // 按钮样式统一
         btnOk.putClientProperty(FlatClientProperties.STYLE, """
-            background: #4c88ff;
-            foreground: #ffffff;
             arc: 12;
-            hoverBackground: #5fafff;
-            pressedBackground: #2c6ae0;
         """);
-
         btnCancel.putClientProperty(FlatClientProperties.STYLE, """
-            background: #242529;
-            foreground: #9aa0aa;
             arc: 12;
-            hoverBackground: #2c2f33;
-            pressedBackground: #1f2124;
         """);
 
         btnPanel.add(btnCancel);

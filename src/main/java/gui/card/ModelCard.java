@@ -169,7 +169,7 @@ public class ModelCard extends JPanel {
             int confirm = JOptionPane.showConfirmDialog(
                     parent,
                     "确认删除模型 " + model.getModelName()
-                            + " 吗？\n这将清空该模型的聊天记录。",
+                            + " 吗？\n这将清空该模型的所有聊天记录且无法恢复，该操作不可撤销。",
                     "删除确认",
                     JOptionPane.YES_NO_OPTION
             );
