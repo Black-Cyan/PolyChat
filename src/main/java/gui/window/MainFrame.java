@@ -96,6 +96,9 @@ public class MainFrame extends JFrame {
         scrollPane = new JScrollPane(modelListPanel);
         scrollPane.putClientProperty("FlatLaf.style", "border: null; background: @background;");
         scrollPane.setBorder(null);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(24);
 
         refreshModelList();
 
@@ -132,9 +135,11 @@ public class MainFrame extends JFrame {
 
     // ========== 侧边栏按钮 ==========
     private static class SidebarButton extends JButton {
-        private static final Color BASE = new Color(0x3d7bfd);
-        private static final Color HOVER = new Color(0x4c88ff);
-        private static final Color PRESSED = new Color(0x2c6ae0);
+        private static final Color ACCENT = new Color(0x5fafff);
+        private static final Color HOVER_FILL = new Color(0x5fafff80, true);
+        private static final Color PRESSED_FILL = new Color(0x5fafffb3, true);
+        private static final Color BORDER = new Color(0x1D1D1D);
+        private static final Color TEXT = new Color(0xdde7ff);
         private static final int ARC = 14;
 
         public SidebarButton(String text) {
@@ -143,7 +148,7 @@ public class MainFrame extends JFrame {
             setFocusPainted(false);
             setRolloverEnabled(true);
             setOpaque(false);
-            setForeground(Color.WHITE);
+            setForeground(TEXT);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setMargin(new Insets(4, 4, 4, 4));
             setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
@@ -158,11 +163,16 @@ public class MainFrame extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             ButtonModel m = getModel();
-            Color fill = BASE;
-            if (m.isPressed()) fill = PRESSED;
-            else if (m.isRollover()) fill = HOVER;
-            g2.setColor(fill);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
+            Color fill = null;
+            if (m.isPressed()) fill = PRESSED_FILL;
+            else if (m.isRollover()) fill = HOVER_FILL;
+            if (fill != null) {
+                g2.setColor(fill);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
+            }
+            g2.setColor(BORDER);
+            g2.setStroke(new BasicStroke(1.2f));
+            g2.drawRoundRect(0, 0, getWidth()-1, getHeight()-1, ARC, ARC);
             g2.dispose();
             super.paintComponent(g);
         }

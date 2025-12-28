@@ -66,16 +66,8 @@ public class ModelCard extends JPanel {
         description.setFont(description.getFont().deriveFont(13f));
         body.add(description, BorderLayout.CENTER);
 
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        footer.setOpaque(false);
-        JLabel hint = new JLabel("单击打开 · 右键更多");
-        hint.setForeground(UIManager.getColor("Label.disabledForeground"));
-        hint.setFont(hint.getFont().deriveFont(12f));
-        footer.add(hint);
-
         content.add(header, BorderLayout.NORTH);
         content.add(body, BorderLayout.CENTER);
-        content.add(footer, BorderLayout.SOUTH);
 
         add(content, BorderLayout.CENTER);
 
@@ -124,9 +116,9 @@ public class ModelCard extends JPanel {
     private void addRightClickMenu() {
         JPopupMenu popupMenu = new JPopupMenu();
 
-        JMenuItem editItem = new JMenuItem("编辑", UIManager.getIcon("FileView.fileIcon"));
-        JMenuItem deleteItem = new JMenuItem("删除", UIManager.getIcon("TabbedPane.closeIcon"));
-        JMenuItem exportItem = new JMenuItem("导出", UIManager.getIcon("FileView.floppyDriveIcon"));
+        JMenuItem editItem = new JMenuItem("编辑", new ImageIcon(ModelCard.class.getResource("/images/edit.png")));
+        JMenuItem deleteItem = new JMenuItem("删除", new ImageIcon(ModelCard.class.getResource("/images/delete.png")));
+        JMenuItem exportItem = new JMenuItem("导出", new ImageIcon(ModelCard.class.getResource("/images/export.png")));
 
         JMenuItem[] items = { editItem, deleteItem, exportItem };
         for (JMenuItem item : items) {
@@ -151,15 +143,25 @@ public class ModelCard extends JPanel {
             );
             if(confirm == JOptionPane.YES_OPTION) {
                 modelDAO.deleteModel(model.getUuid());
-                JOptionPane.showMessageDialog(parent, "删除成功！");
                 Container parentContainer = ModelCard.this.getParent();
                 if(parentContainer != null) {
+                    Component[] comps = parentContainer.getComponents();
+                    int idx = -1;
+                    for (int i = 0; i < comps.length; i++) {
+                        if (comps[i] == ModelCard.this) { idx = i; break; }
+                    }
                     parentContainer.remove(ModelCard.this);
+                    if (idx >= 0 && idx < parentContainer.getComponentCount()) {
+                        Component maybeStrut = parentContainer.getComponent(idx);
+                        if (maybeStrut instanceof Box.Filler) {
+                            parentContainer.remove(maybeStrut);
+                        }
+                    }
                     parentContainer.revalidate();
                     parentContainer.repaint();
-                }
-            }
-        });
+                 }
+             }
+         });
 
         content.addMouseListener(new MouseAdapter() {
             @Override
