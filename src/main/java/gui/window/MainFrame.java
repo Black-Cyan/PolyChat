@@ -1,7 +1,7 @@
 package gui.window;
 
-import com.formdev.flatlaf.FlatIntelliJLaf;
-import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.intellijthemes.FlatArcDarkIJTheme;
+
 import core.entity.Model;
 import core.util.DBUtil;
 import core.util.ModelDAO;
@@ -46,13 +46,14 @@ public class MainFrame extends JFrame {
     // ========== 侧边菜单 ==========
     private JPanel createSideMenu() {
         JPanel menu = new JPanel();
-        menu.setPreferredSize(new Dimension(180, 0));
+        menu.setPreferredSize(new Dimension(200, 0));
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
+        menu.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
 
-        menu.putClientProperty("FlatLaf.style", "background: #e5f0ff;");
+        menu.putClientProperty("FlatLaf.style", "background: darken(@background, 6%);");
 
-        JButton btnCreate = new JButton("➕ 创建模型");
-        JButton btnImport = new JButton("📂 导入模型");
+        JButton btnCreate = new SidebarButton("创建模型");
+        JButton btnImport = new SidebarButton("导入模型");
 
         styleMenuButton(btnCreate);
         styleMenuButton(btnImport);
@@ -71,7 +72,7 @@ public class MainFrame extends JFrame {
 
         menu.add(Box.createVerticalStrut(20));
         menu.add(btnCreate);
-        menu.add(Box.createVerticalStrut(10));
+        menu.add(Box.createVerticalStrut(12));
         menu.add(btnImport);
         menu.add(Box.createVerticalGlue());
 
@@ -79,19 +80,18 @@ public class MainFrame extends JFrame {
     }
 
     private void styleMenuButton(JButton button) {
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setMaximumSize(new Dimension(160, 40));
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.setHorizontalAlignment(SwingConstants.LEFT);
+        button.setIconTextGap(10);
+        button.setMaximumSize(new Dimension(200, 46));
+        button.setPreferredSize(new Dimension(200, 46));
         button.setFocusPainted(false);
         button.setForeground(Color.WHITE);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setMargin(new Insets(4, 4, 4, 4));
+        button.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+        button.putClientProperty("JButton.buttonType", "roundRect");
 
-        button.putClientProperty("FlatLaf.style", """
-            background: #0078d7;
-            hoverBackground: #0090ff;
-            pressedBackground: #005ea6;
-            foreground: #ffffff;
-            arc: 12;
-        """);
 
     }
 
@@ -139,21 +139,51 @@ public class MainFrame extends JFrame {
 
     // ========== 主函数 ==========
     public static void main(String[] args) {
-        FlatLightLaf.setup();
-
-        UIManager.put("Component.focusColor", new Color(0, 120, 215));
-        UIManager.put("Button.background", new Color(0, 120, 215));
-        UIManager.put("Button.foreground", Color.WHITE);
-        UIManager.put("Button.hoverBackground", new Color(0, 150, 255));
-        UIManager.put("Button.pressedBackground", new Color(0, 100, 200));
-        UIManager.put("Panel.background", Color.WHITE);
-        UIManager.put("ScrollBar.thumb", new Color(0, 120, 215));
+        FlatArcDarkIJTheme.setup();
 
         UIManager.put("Component.arc", 12);
-        UIManager.put("Button.arc", 12);
+        UIManager.put("Button.arc", 14);
         UIManager.put("TextComponent.arc", 12);
         UIManager.put("ScrollBar.width", 10);
 
         SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
+    }
+
+    //========== 侧边栏按钮 ==========
+    private static class SidebarButton extends JButton {
+        private static final Color BASE = new Color(0x3d7bfd);
+        private static final Color HOVER = new Color(0x4c88ff);
+        private static final Color PRESSED = new Color(0x2c6ae0);
+        private static final int ARC = 14;
+
+        SidebarButton(String text) {
+            super(text);
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setOpaque(false);
+            setForeground(Color.WHITE);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setMargin(new Insets(4, 4, 4, 4));
+            setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
+            setHorizontalAlignment(SwingConstants.LEFT);
+            setIconTextGap(10);
+            setMaximumSize(new Dimension(200, 46));
+            setPreferredSize(new Dimension(200, 46));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            ButtonModel m = getModel();
+            Color fill = BASE;
+            if (m.isPressed()) fill = PRESSED;
+            else if (m.isRollover()) fill = HOVER;
+            g2.setColor(fill);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), ARC, ARC);
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
 }

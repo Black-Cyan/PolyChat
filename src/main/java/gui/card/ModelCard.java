@@ -8,6 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import javax.swing.border.LineBorder;
 
 public class ModelCard extends JPanel {
 
@@ -23,33 +24,58 @@ public class ModelCard extends JPanel {
 
         setLayout(new BorderLayout());
         setOpaque(false);
-        setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
         content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
-
+        content.setLayout(new BorderLayout(0, 10));
         content.putClientProperty("FlatLaf.style", """
             arc: 18;
-            background: #ffffff;
-            border: 1,1,1,1,#e3e3e3;
+            background: darken(@background, 3%);
         """);
+        setCardBorder(new Color(0x3c3f41));
+
+        JPanel header = new JPanel(new BorderLayout(10, 0));
+        header.setOpaque(false);
+
+        JLabel icon = new JLabel(UIManager.getIcon("FileView.computerIcon"));
+        icon.putClientProperty("FlatLaf.style", "foreground: #4c88ff;");
+
+        JPanel titleBox = new JPanel();
+        titleBox.setOpaque(false);
+        titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel(model.getNickname().isEmpty() ? model.getModelName() : model.getNickname());
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 17f));
-        title.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
-        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
 
-        JLabel description = new JLabel("<html><body style='width:280px'>" + model.getModelName() + "</body></html>");
-        description.setForeground(new Color(120, 120, 120));
+        JLabel subtitle = new JLabel(model.getModelName());
+        subtitle.setForeground(UIManager.getColor("Component.infoForeground"));
+        subtitle.setFont(subtitle.getFont().deriveFont(13f));
+
+        titleBox.add(title);
+        titleBox.add(subtitle);
+
+        header.add(icon, BorderLayout.WEST);
+        header.add(titleBox, BorderLayout.CENTER);
+
+        JPanel body = new JPanel(new BorderLayout());
+        body.setOpaque(false);
+        JLabel description = new JLabel("Base URL: " + model.getBaseUrl());
+        description.setForeground(UIManager.getColor("Component.infoForeground"));
         description.setFont(description.getFont().deriveFont(13f));
-        description.setBorder(BorderFactory.createEmptyBorder(0, 16, 16, 16));
-        description.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(description, BorderLayout.CENTER);
 
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        footer.setOpaque(false);
+        JLabel hint = new JLabel("单击打开 · 右键更多");
+        hint.setForeground(UIManager.getColor("Label.disabledForeground"));
+        hint.setFont(hint.getFont().deriveFont(12f));
+        footer.add(hint);
 
-        content.add(title);
-        content.add(description);
+        content.add(header, BorderLayout.NORTH);
+        content.add(body, BorderLayout.CENTER);
+        content.add(footer, BorderLayout.SOUTH);
 
         add(content, BorderLayout.CENTER);
 
@@ -63,21 +89,23 @@ public class ModelCard extends JPanel {
             public void mouseEntered(MouseEvent e) {
                 content.putClientProperty("FlatLaf.style", """
                     arc: 18;
-                    background: #f5f7fa;
-                    border: 1,1,1,1,#cfd8dc;
-                """);
+                    background: darken(@background, 6%);
+                 """);
+                setCardBorder(new Color(0x505458));
+                content.revalidate();
                 content.repaint();
-            }
+             }
 
-            @Override
-            public void mouseExited(MouseEvent e) {
-                content.putClientProperty("FlatLaf.style", """
-                    arc: 18;
-                    background: #ffffff;
-                    border: 1,1,1,1,#e3e3e3;
-                """);
-                content.repaint();
-            }
+             @Override
+             public void mouseExited(MouseEvent e) {
+                 content.putClientProperty("FlatLaf.style", """
+                     arc: 18;
+                     background: darken(@background, 3%);
+                  """);
+                 setCardBorder(new Color(0x3c3f41));
+                 content.revalidate();
+                 content.repaint();
+             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -100,15 +128,15 @@ public class ModelCard extends JPanel {
         for (JMenuItem item : items) {
             item.setHorizontalAlignment(SwingConstants.CENTER);
             item.setOpaque(true);
-            item.setBackground(Color.WHITE);
-            item.setForeground(Color.DARK_GRAY);
+            item.setBackground(UIManager.getColor("PopupMenu.background"));
+            item.setForeground(UIManager.getColor("PopupMenu.foreground"));
             item.setBorder(BorderFactory.createEmptyBorder(4, 16, 4, 16));
 
             item.addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseEntered(MouseEvent e) { item.setBackground(new Color(220, 235, 255)); }
+                public void mouseEntered(MouseEvent e) { item.setBackground(darken(UIManager.getColor("PopupMenu.background"), 0.05f)); }
                 @Override
-                public void mouseExited(MouseEvent e) { item.setBackground(Color.WHITE); }
+                public void mouseExited(MouseEvent e) { item.setBackground(UIManager.getColor("PopupMenu.background")); }
             });
 
             popupMenu.add(item);
@@ -145,5 +173,19 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) popupMenu.show(e.getComponent(), e.getX(), e.getY()); }
         });
+    }
+
+    private Color darken(Color color, float fraction) {
+        int r = Math.max((int) (color.getRed() * (1 - fraction)), 0);
+        int g = Math.max((int) (color.getGreen() * (1 - fraction)), 0);
+        int b = Math.max((int) (color.getBlue() * (1 - fraction)), 0);
+        return new Color(r, g, b, color.getAlpha());
+    }
+
+    private void setCardBorder(Color lineColor) {
+        content.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(lineColor, 1, true),
+                BorderFactory.createEmptyBorder(16, 18, 16, 18)
+        ));
     }
 }

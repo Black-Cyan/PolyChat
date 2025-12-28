@@ -1,7 +1,6 @@
 package gui.dialog;
 
 import core.util.ModelDAO;
-import com.formdev.flatlaf.FlatLightLaf;
 
 import javax.swing.*;
 import java.awt.*;
@@ -25,7 +24,7 @@ public class NewModelDialog extends JDialog {
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        panel.putClientProperty("FlatLaf.style", "background: #f5f5f5; arc: 12;");
+        panel.putClientProperty("FlatLaf.style", "background: @background; arc: 12;");
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(8, 8, 8, 8);
@@ -78,9 +77,9 @@ public class NewModelDialog extends JDialog {
         JButton btnCancel = new JButton("取消");
 
         btnOk.putClientProperty("JButton.buttonType", "roundRect");
-        btnOk.putClientProperty("FlatLaf.style", "background: #2b73ff; foreground: #ffffff; arc: 12; hoverBackground: #5393ff;");
+        btnOk.putClientProperty("FlatLaf.style", "background: #3d7bfd; foreground: #ffffff; arc: 12; hoverBackground: #4c88ff; pressedBackground: #2c6ae0; focusWidth: 0;");
         btnCancel.putClientProperty("JButton.buttonType", "roundRect");
-        btnCancel.putClientProperty("FlatLaf.style", "background: #cccccc; foreground: #000000; arc: 12; hoverBackground: #dddddd;");
+        btnCancel.putClientProperty("FlatLaf.style", "background: darken(@background,5%); foreground: @foreground; arc: 12; hoverBackground: darken(@background,8%);");
 
         btnPanel.add(btnOk);
         btnPanel.add(btnCancel);
