@@ -55,8 +55,8 @@ public class MultiChatWindow extends JFrame {
     private final ExecutorService executorService = Executors.newFixedThreadPool(20);
     private volatile boolean isWindowActive = true;
     
-    // Per-session locks for fine-grained synchronization
-    private final Map<String, Object> sessionLocks = new HashMap<>();
+    // Per-session locks for fine-grained synchronization (thread-safe map)
+    private final Map<String, Object> sessionLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final Parser mdParser;
     private final HtmlRenderer mdRenderer;
@@ -345,7 +345,8 @@ public class MultiChatWindow extends JFrame {
             }
 
             // Save user message to database (synchronized per session, not globally)
-            Object sessionLock = sessionLocks.get(session.getUuid());
+            // Use computeIfAbsent to ensure lock exists
+            Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
             synchronized (sessionLock) {
                 chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
             }
@@ -396,7 +397,8 @@ public class MultiChatWindow extends JFrame {
 
                     String assistantResponse = fullResponse.toString();
                     // Synchronized database write (per session, not globally)
-                    Object sessionLock = sessionLocks.get(session.getUuid());
+                    // Use computeIfAbsent to ensure lock exists
+                    Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
                     synchronized (sessionLock) {
                         chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
                     }
