@@ -88,9 +88,14 @@ public class ModelCard extends JPanel {
         titleBox.add(title);
         titleBox.add(subtitle);
 
+        // Create a panel for icon and titles
+        JPanel centerPanel = new JPanel(new BorderLayout(10, 0));
+        centerPanel.setOpaque(false);
+        centerPanel.add(icon, BorderLayout.WEST);
+        centerPanel.add(titleBox, BorderLayout.CENTER);
+
         header.add(selectCheckbox, BorderLayout.WEST);
-        header.add(icon, BorderLayout.CENTER);
-        header.add(titleBox, BorderLayout.EAST);
+        header.add(centerPanel, BorderLayout.CENTER);
 
         // ================= Body =================
 

@@ -51,7 +51,8 @@ public class MultiChatWindow extends JFrame {
     private final ChatDAO chatDAO;
     private final ModelDAO modelDAO;
     private final Map<String, ModelChatPanel> chatPanels = new HashMap<>();
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    // Use fixed thread pool to prevent resource exhaustion
+    private final ExecutorService executorService = Executors.newFixedThreadPool(20);
     private volatile boolean isWindowActive = true;
 
     private final Parser mdParser;
@@ -312,7 +313,11 @@ public class MultiChatWindow extends JFrame {
             if (session == null) {
                 return;
             }
-            for (ChatMessage msg : chatDAO.listMessages(session.getUuid())) {
+            List<ChatMessage> messages;
+            synchronized (chatDAO) {
+                messages = chatDAO.listMessages(session.getUuid());
+            }
+            for (ChatMessage msg : messages) {
                 addMessageBubble(msg);
             }
             messagePanel.add(Box.createVerticalGlue());
@@ -326,14 +331,19 @@ public class MultiChatWindow extends JFrame {
                 return;
             }
 
-            // Save user message to database
-            chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
+            // Save user message to database (synchronized to prevent concurrent DB writes)
+            synchronized (chatDAO) {
+                chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
+            }
 
             // Add user message to UI
             SwingUtilities.invokeLater(() -> {
                 if (!isWindowActive) return;
                 
-                List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+                List<ChatMessage> currentHistory;
+                synchronized (chatDAO) {
+                    currentHistory = chatDAO.listMessages(session.getUuid());
+                }
                 if (!currentHistory.isEmpty()) {
                     ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
                     addMessageBubble(userMsg);
@@ -346,7 +356,10 @@ public class MultiChatWindow extends JFrame {
             });
 
             // Prepare API messages
-            List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+            List<ChatMessage> currentHistory;
+            synchronized (chatDAO) {
+                currentHistory = chatDAO.listMessages(session.getUuid());
+            }
             List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
             for (ChatMessage msg : currentHistory) {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
@@ -372,7 +385,10 @@ public class MultiChatWindow extends JFrame {
                     if (!isWindowActive) return;
 
                     String assistantResponse = fullResponse.toString();
-                    chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
+                    // Synchronized database write
+                    synchronized (chatDAO) {
+                        chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
+                    }
 
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
