@@ -54,6 +54,9 @@ public class MultiChatWindow extends JFrame {
     // Use fixed thread pool to prevent resource exhaustion
     private final ExecutorService executorService = Executors.newFixedThreadPool(20);
     private volatile boolean isWindowActive = true;
+    
+    // Per-session locks for fine-grained synchronization
+    private final Map<String, Object> sessionLocks = new HashMap<>();
 
     private final Parser mdParser;
     private final HtmlRenderer mdRenderer;
@@ -106,6 +109,9 @@ public class MultiChatWindow extends JFrame {
             // Create or get session for this model
             ChatSession session = createOrGetSession(model);
             
+            // Create a lock for this session
+            sessionLocks.put(session.getUuid(), new Object());
+            
             ModelChatPanel panel = new ModelChatPanel(model, service, session);
             chatPanels.put(model.getUuid(), panel);
             modelsContainer.add(panel);
@@ -133,6 +139,10 @@ public class MultiChatWindow extends JFrame {
         JScrollPane scrollPane = new JScrollPane(modelsContainer);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        
+        // Enable mouse wheel scrolling with proper speed
+        scrollPane.getVerticalScrollBar().setBlockIncrement(50);
+        scrollPane.setWheelScrollingEnabled(true);
 
         mainPanel.add(scrollPane, BorderLayout.CENTER);
 
@@ -262,6 +272,11 @@ public class MultiChatWindow extends JFrame {
             messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
             messageScroll.setBorder(BorderFactory.createEmptyBorder());
             messageScroll.getVerticalScrollBar().setUnitIncrement(16);
+            
+            // Enable mouse wheel scrolling with proper speed
+            messageScroll.getVerticalScrollBar().setBlockIncrement(50);
+            messageScroll.setWheelScrollingEnabled(true);
+            
             messageScroll.getViewport().setOpaque(false);
             messageScroll.setOpaque(false);
 
@@ -329,8 +344,9 @@ public class MultiChatWindow extends JFrame {
                 return;
             }
 
-            // Save user message to database (synchronized to prevent concurrent DB writes)
-            synchronized (chatDAO) {
+            // Save user message to database (synchronized per session, not globally)
+            Object sessionLock = sessionLocks.get(session.getUuid());
+            synchronized (sessionLock) {
                 chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
             }
 
@@ -379,8 +395,9 @@ public class MultiChatWindow extends JFrame {
                     if (!isWindowActive) return;
 
                     String assistantResponse = fullResponse.toString();
-                    // Synchronized database write
-                    synchronized (chatDAO) {
+                    // Synchronized database write (per session, not globally)
+                    Object sessionLock = sessionLocks.get(session.getUuid());
+                    synchronized (sessionLock) {
                         chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
                     }
 
