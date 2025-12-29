@@ -13,6 +13,7 @@ import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.Objects;
 
 public class ModelCard extends JPanel {
 
@@ -157,9 +158,9 @@ public class ModelCard extends JPanel {
     private void addRightClickMenu() {
         JPopupMenu popup = new JPopupMenu();
 
-        JMenuItem edit = new JMenuItem("编辑", new ImageIcon(getClass().getResource("/images/edit.png")));
-        JMenuItem delete = new JMenuItem("删除", new ImageIcon(getClass().getResource("/images/delete.png")));
-        JMenuItem export = new JMenuItem("导出", new ImageIcon(getClass().getResource("/images/export.png")));
+        JMenuItem edit = new JMenuItem("编辑", new ImageIcon(Objects.requireNonNull(getClass().getResource("/images/edit.png"))));
+        JMenuItem delete = new JMenuItem("删除", new ImageIcon(Objects.requireNonNull(getClass().getResource("/images/delete.png"))));
+        JMenuItem export = new JMenuItem("导出", new ImageIcon(Objects.requireNonNull(getClass().getResource("/images/export.png"))));
 
         for (JMenuItem item : new JMenuItem[]{edit, delete, export}) {
             item.setBorder(
