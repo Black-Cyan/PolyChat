@@ -67,7 +67,7 @@ public class ChatWindow extends JFrame {
 
     private final JPanel messagePanel = new JPanel();
     private JScrollPane messageScroll;
-    private final JTextArea inputArea = new JTextArea(3, 40);
+    private final JTextArea inputArea = new JTextArea(5, 40);
     private JButton btnSend;
 
     private ChatSession currentSession;
@@ -315,6 +315,15 @@ public class ChatWindow extends JFrame {
                 "background:$EditorPane.background;" +
                         "border:0,0,0,0;" +
                         "font:+1");
+
+        inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "none");
+        inputArea.getInputMap().put(KeyStroke.getKeyStroke("shift ENTER"), "insert-break");
+        inputArea.getActionMap().put("none", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                onSend(e);
+            }
+        });
 
         JScrollPane inputScroll =
                 new JScrollPane(inputArea);

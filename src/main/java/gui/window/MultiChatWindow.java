@@ -144,6 +144,7 @@ public class MultiChatWindow extends JFrame {
             if (canScrollHorizontally || canScrollVertically) {
                 // Forward the event to main scroll pane
                 modelsScrollPane.dispatchEvent(SwingUtilities.convertMouseEvent(comp, e, modelsScrollPane));
+                e.consume();
             }
         };
         comp.addMouseWheelListener(forwarder);
@@ -312,6 +313,7 @@ public class MultiChatWindow extends JFrame {
 
             messageScroll = new JScrollPane(messagePanel);
             messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            messageScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
             messageScroll.setBorder(BorderFactory.createEmptyBorder());
             messageScroll.getVerticalScrollBar().setUnitIncrement(16);
             
@@ -493,9 +495,6 @@ public class MultiChatWindow extends JFrame {
             applyBubbleWidth(bubble, textPane);
             bubble.add(textPane, BorderLayout.CENTER);
 
-            // Ensure wheel events on new bubble are forwarded
-            installWheelForwarding(bubble, messageScroll);
-
             if (isUser) {
                 line.add(Box.createHorizontalGlue());
                 line.add(bubble);
@@ -524,9 +523,6 @@ public class MultiChatWindow extends JFrame {
             currentAssistantMessage = createMarkdownPane("正在思考...");
             applyBubbleWidth(bubble, currentAssistantMessage);
             bubble.add(currentAssistantMessage, BorderLayout.CENTER);
-
-            // Ensure wheel events on new bubble are forwarded
-            installWheelForwarding(bubble, messageScroll);
 
             line.add(bubble);
             line.add(Box.createHorizontalGlue());
@@ -620,12 +616,23 @@ public class MultiChatWindow extends JFrame {
                     e.getWheelRotation()
             );
             target.dispatchEvent(newEvent);
+            e.consume();
         };
         comp.addMouseWheelListener(forwarder);
 
         if (comp instanceof Container container) {
             for (Component child : container.getComponents()) {
                 installWheelForwarding(child, target);
+            }
+
+            // Add container listener to the view of the scroll pane (messagePanel) to handle dynamic components
+            if (target.getViewport() != null && container == target.getViewport().getView()) {
+                container.addContainerListener(new java.awt.event.ContainerAdapter() {
+                    @Override
+                    public void componentAdded(java.awt.event.ContainerEvent e) {
+                        installWheelForwarding(e.getChild(), target);
+                    }
+                });
             }
         }
     }
