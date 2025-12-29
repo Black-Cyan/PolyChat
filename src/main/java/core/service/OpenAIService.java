@@ -264,4 +264,14 @@ public class OpenAIService {
             throw new IOException("Invalid response format");
         }
     }
+    
+    /**
+     * Shutdown the HTTP client and release resources
+     */
+    public void shutdown() {
+        if (client != null) {
+            client.dispatcher().executorService().shutdown();
+            client.connectionPool().evictAll();
+        }
+    }
 }
