@@ -157,9 +157,9 @@ public class ModelCard extends JPanel {
     private void addRightClickMenu() {
         JPopupMenu popup = new JPopupMenu();
 
-        JMenuItem edit = new JMenuItem("编辑");
-        JMenuItem delete = new JMenuItem("删除");
-        JMenuItem export = new JMenuItem("导出");
+        JMenuItem edit = new JMenuItem("编辑", new ImageIcon(getClass().getResource("/images/edit.png")));
+        JMenuItem delete = new JMenuItem("删除", new ImageIcon(getClass().getResource("/images/delete.png")));
+        JMenuItem export = new JMenuItem("导出", new ImageIcon(getClass().getResource("/images/export.png")));
 
         for (JMenuItem item : new JMenuItem[]{edit, delete, export}) {
             item.setBorder(
