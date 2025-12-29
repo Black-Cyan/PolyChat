@@ -313,10 +313,8 @@ public class MultiChatWindow extends JFrame {
             if (session == null) {
                 return;
             }
-            List<ChatMessage> messages;
-            synchronized (chatDAO) {
-                messages = chatDAO.listMessages(session.getUuid());
-            }
+            // Read operations don't need synchronization as they're safe for concurrent reads
+            List<ChatMessage> messages = chatDAO.listMessages(session.getUuid());
             for (ChatMessage msg : messages) {
                 addMessageBubble(msg);
             }
@@ -340,10 +338,8 @@ public class MultiChatWindow extends JFrame {
             SwingUtilities.invokeLater(() -> {
                 if (!isWindowActive) return;
                 
-                List<ChatMessage> currentHistory;
-                synchronized (chatDAO) {
-                    currentHistory = chatDAO.listMessages(session.getUuid());
-                }
+                // Read operations don't need synchronization as they're safe for concurrent reads
+                List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
                 if (!currentHistory.isEmpty()) {
                     ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
                     addMessageBubble(userMsg);
@@ -356,10 +352,8 @@ public class MultiChatWindow extends JFrame {
             });
 
             // Prepare API messages
-            List<ChatMessage> currentHistory;
-            synchronized (chatDAO) {
-                currentHistory = chatDAO.listMessages(session.getUuid());
-            }
+            // Read operations don't need synchronization as they're safe for concurrent reads
+            List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
             List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
             for (ChatMessage msg : currentHistory) {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
