@@ -135,14 +135,12 @@ public class ModelCard extends JPanel {
 
             @Override
             public void mouseClicked(MouseEvent e) {
+                if (e.getButton() != MouseEvent.BUTTON1) return;
                 if (chatDAO != null && modelDAO != null) {
-                    // Check if window already exists
                     WindowManager wm = WindowManager.getInstance();
                     if (wm.hasWindow(model.getUuid())) {
-                        // Focus existing window
                         wm.focusWindow(model.getUuid());
                     } else {
-                        // Create new window
                         ChatWindow chatWindow = new ChatWindow(model, chatDAO, modelDAO);
                         chatWindow.setVisible(true);
                     }

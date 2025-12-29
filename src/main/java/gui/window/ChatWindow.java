@@ -14,8 +14,11 @@ import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 
+import org.jetbrains.annotations.NotNull;
+
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.View;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
@@ -106,16 +109,7 @@ public class ChatWindow extends JFrame {
         
         // Show warning banner if API is not configured
         if (openAIService == null) {
-            JPanel warningPanel = new JPanel(new BorderLayout());
-            warningPanel.setBackground(new Color(255, 200, 0, 30));
-            warningPanel.setBorder(new CompoundBorder(
-                    BorderFactory.createMatteBorder(0, 0, 1, 0, 
-                            new Color(255, 200, 0)),
-                    new EmptyBorder(8, 12, 8, 12)
-            ));
-            JLabel warningLabel = new JLabel("⚠ API配置未完成，无法发送消息。请在编辑模型中配置API Key。");
-            warningLabel.setForeground(new Color(200, 150, 0));
-            warningPanel.add(warningLabel, BorderLayout.CENTER);
+            JPanel warningPanel = getWarningPanel();
             add(warningPanel, BorderLayout.NORTH);
             
             // Disable input area
@@ -152,6 +146,20 @@ public class ChatWindow extends JFrame {
                 }
             }
         });
+    }
+
+    private static @NotNull JPanel getWarningPanel() {
+        JPanel warningPanel = new JPanel(new BorderLayout());
+        warningPanel.setBackground(new Color(255, 200, 0, 30));
+        warningPanel.setBorder(new CompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0,
+                        new Color(255, 200, 0)),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        JLabel warningLabel = new JLabel("API配置未完成，无法发送消息。请在编辑模型中配置API Key。");
+        warningLabel.setForeground(new Color(200, 150, 0));
+        warningPanel.add(warningLabel, BorderLayout.CENTER);
+        return warningPanel;
     }
 
     // ===================== 左侧会话栏 =====================
@@ -220,6 +228,7 @@ public class ChatWindow extends JFrame {
                 "background:$EditorPane.background");
 
         messageScroll = new JScrollPane(messagePanel);
+        messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         messageScroll.setBorder(BorderFactory.createEmptyBorder());
         messageScroll.getVerticalScrollBar().setUnitIncrement(18);
         messageScroll.getViewport().setOpaque(false);
@@ -434,7 +443,7 @@ public class ChatWindow extends JFrame {
         if (messageScroll != null && messageScroll.getViewport() != null) {
             int vw = messageScroll.getViewport().getWidth();
             if (vw > 0) {
-                return Math.max(220, vw - 40);
+                return Math.max(220, vw - 60);
             }
         }
         return 800;
@@ -484,6 +493,7 @@ public class ChatWindow extends JFrame {
             }
         }
         messagePanel.revalidate();
+        messagePanel.repaint();
     }
 
     private void applyBubbleWidth(JPanel bubble, JEditorPane content) {
@@ -493,11 +503,46 @@ public class ChatWindow extends JFrame {
     private void applyBubbleWidth(JPanel bubble, JEditorPane content, int maxW) {
         bubble.setMaximumSize(new Dimension(maxW, Integer.MAX_VALUE));
         int contentW = Math.max(180, maxW - 24); // subtract bubble padding
-        content.setSize(new Dimension(contentW, Short.MAX_VALUE));
-        Dimension pref = content.getPreferredSize();
-        pref.width = contentW; // allow expanding when viewport grows
-        content.setPreferredSize(pref);
+
+        content.setSize(new Dimension(contentW, Integer.MAX_VALUE));
+
+        // Use View to calculate precise height for the given width
+        View view = content.getUI().getRootView(content);
+        if (view != null) {
+            view.setSize(contentW, Integer.MAX_VALUE);
+            int prefH = (int) Math.ceil(view.getPreferredSpan(View.Y_AXIS));
+            content.setPreferredSize(new Dimension(contentW, prefH));
+        } else {
+            // Fallback if View is not ready
+            Dimension pref = content.getPreferredSize();
+            pref.width = contentW;
+            content.setPreferredSize(pref);
+        }
+
         bubble.revalidate();
+    }
+
+    private void generateTitle(ChatSession session, String userMsg, String assistantMsg) {
+        executorService.submit(() -> {
+            try {
+                List<OpenAIService.ChatMessage> messages = new ArrayList<>();
+                messages.add(new OpenAIService.ChatMessage("system", "You are a helpful assistant. Generate a short, concise title (max 10 words) for the following conversation. Do not use quotes."));
+                messages.add(new OpenAIService.ChatMessage("user", "User: " + userMsg + "\nAssistant: " + assistantMsg));
+
+                String title = openAIService.chatCompletion(messages);
+                if (title != null && !title.isEmpty()) {
+                    title = title.trim().replace("\"", "");
+                    chatDAO.updateSessionTitle(session.getUuid(), title);
+                    session.setTitle(title);
+
+                    SwingUtilities.invokeLater(() -> {
+                        sessionList.repaint();
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void onSend(ActionEvent e) {
@@ -540,7 +585,7 @@ public class ChatWindow extends JFrame {
 
         // Load the persisted user message from database
         List<ChatMessage> currentHistory = chatDAO.listMessages(currentSession.getUuid());
-        ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
+        ChatMessage userMsg = currentHistory.getLast();
         
         // Add user message to UI using the database ID
         addMessageBubble(userMsg);
@@ -582,13 +627,21 @@ public class ChatWindow extends JFrame {
                 public void onComplete() {
                     if (!isWindowActive) return;
                     
+                    String assistantResponse = fullResponse.toString();
+
                     // Save assistant message to database
                     chatDAO.addMessage(
                             currentSession.getUuid(),
                             "assistant",
-                            fullResponse.toString(),
+                            assistantResponse,
                             System.currentTimeMillis()
                     );
+
+                    // Check if we need to generate title (first exchange)
+                    List<ChatMessage> msgs = chatDAO.listMessages(currentSession.getUuid());
+                    if (msgs.size() == 2) {
+                         generateTitle(currentSession, userMessage, assistantResponse);
+                    }
 
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
@@ -646,40 +699,53 @@ public class ChatWindow extends JFrame {
 
     // ===================== Renderer =====================
 
-    private static class SessionRenderer
-            extends DefaultListCellRenderer {
+    private static class SessionRenderer extends JPanel implements ListCellRenderer<ChatSession> {
+        private final JLabel titleLabel = new JLabel();
+        private final JLabel timeLabel = new JLabel();
+
+        public SessionRenderer() {
+            super();
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setBorder(new EmptyBorder(8, 14, 8, 14));
+
+            titleLabel.setOpaque(false);
+            titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            timeLabel.setOpaque(false);
+            timeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            timeLabel.setFont(UIManager.getFont("Label.font").deriveFont(11.0f));
+
+            add(titleLabel);
+            add(Box.createVerticalStrut(4));
+            add(timeLabel);
+        }
+
         @Override
         public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
+                JList<? extends ChatSession> list,
+                ChatSession value,
                 int index,
                 boolean isSelected,
                 boolean cellHasFocus) {
 
-            JLabel base = (JLabel)
-                    super.getListCellRendererComponent(
-                            list, value, index,
-                            isSelected, cellHasFocus);
-
-            base.setBorder(
-                    new EmptyBorder(8, 14, 8, 14));
-            base.setOpaque(true);
-            base.setBackground(isSelected
-                    ? UIManager.getColor(
-                    "List.selectionBackground")
-                    : new Color(0, 0, 0, 0));
-
-            if (value instanceof ChatSession s) {
-                base.setText(
-                        (s.getTitle() == null ||
-                                s.getTitle().isEmpty()
-                                ? "New Chat"
-                                : s.getTitle())
-                                + "   "
-                                + TIME_FMT.format(
-                                s.getCreatedAt()));
+            if (isSelected) {
+                setBackground(UIManager.getColor("List.selectionBackground"));
+                titleLabel.setForeground(UIManager.getColor("List.selectionForeground"));
+                timeLabel.setForeground(UIManager.getColor("List.selectionForeground"));
+            } else {
+                setBackground(new Color(0, 0, 0, 0));
+                titleLabel.setForeground(UIManager.getColor("List.foreground"));
+                timeLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
             }
-            return base;
+
+            String title = (value.getTitle() == null || value.getTitle().isEmpty())
+                    ? "新对话"
+                    : value.getTitle();
+
+            titleLabel.setText(title);
+            timeLabel.setText(TIME_FMT.format(value.getCreatedAt()));
+
+            return this;
         }
     }
 }
