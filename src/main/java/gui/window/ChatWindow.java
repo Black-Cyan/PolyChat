@@ -114,7 +114,9 @@ public class ChatWindow extends JFrame {
             
             // Disable input area
             inputArea.setEnabled(false);
-            btnSend.setEnabled(false);
+            if (btnSend != null) {
+                btnSend.setEnabled(false);
+            }
         }
 
         // keep bubble widths in sync with viewport size
@@ -423,8 +425,13 @@ public class ChatWindow extends JFrame {
     private void renderMarkdown(JEditorPane pane, String content) {
         String safe = content == null ? "" : content;
         String html = mdRenderer.render(mdParser.parse(safe));
+        
+        // Get font family with fallback
+        Font labelFont = UIManager.getFont("Label.font");
+        String fontFamily = labelFont != null ? labelFont.getFamily() : "SansSerif";
+        
         String body = "<html><head><style>" +
-                "body{margin:0;padding:0;font-family:" + UIManager.getFont("Label.font").getFamily() + ";overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;}" +
+                "body{margin:0;padding:0;font-family:" + fontFamily + ";overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;}" +
                 "p{margin:0 0 4px 0;}" +
                 "ul,ol{margin:0 0 4px 18px;}" +
                 "pre{margin:4px 0;padding:6px;background:" + toRgb(UIManager.getColor("Panel.background")) + ";border-radius:6px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;}" +
@@ -502,7 +509,11 @@ public class ChatWindow extends JFrame {
 
     private void applyBubbleWidth(JPanel bubble, JEditorPane content, int maxW) {
         bubble.setMaximumSize(new Dimension(maxW, Integer.MAX_VALUE));
-        int contentW = Math.max(180, maxW - 24); // subtract bubble padding
+        
+        // Calculate padding from bubble's actual border insets
+        Insets bubbleInsets = bubble.getBorder() != null ? bubble.getBorder().getBorderInsets(bubble) : new Insets(0, 0, 0, 0);
+        int horizontalPadding = bubbleInsets.left + bubbleInsets.right;
+        int contentW = Math.max(180, maxW - horizontalPadding);
 
         content.setSize(new Dimension(contentW, Integer.MAX_VALUE));
 
@@ -523,6 +534,10 @@ public class ChatWindow extends JFrame {
     }
 
     private void generateTitle(ChatSession session, String userMsg, String assistantMsg) {
+        if (openAIService == null) {
+            return; // Cannot generate title without API service
+        }
+        
         executorService.submit(() -> {
             try {
                 List<OpenAIService.ChatMessage> messages = new ArrayList<>();
@@ -585,7 +600,15 @@ public class ChatWindow extends JFrame {
 
         // Load the persisted user message from database
         List<ChatMessage> currentHistory = chatDAO.listMessages(currentSession.getUuid());
-        ChatMessage userMsg = currentHistory.getLast();
+        if (currentHistory == null || currentHistory.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "发送消息时发生错误，请重试。",
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE);
+            setInputEnabled(true);
+            return;
+        }
+        ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
         
         // Add user message to UI using the database ID
         addMessageBubble(userMsg);
@@ -713,7 +736,15 @@ public class ChatWindow extends JFrame {
 
             timeLabel.setOpaque(false);
             timeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            timeLabel.setFont(UIManager.getFont("Label.font").deriveFont(11.0f));
+            
+            // Set font with fallback
+            Font baseFont = UIManager.getFont("Label.font");
+            if (baseFont == null) {
+                baseFont = timeLabel.getFont();
+            }
+            if (baseFont != null) {
+                timeLabel.setFont(baseFont.deriveFont(11.0f));
+            }
 
             add(titleLabel);
             add(Box.createVerticalStrut(4));

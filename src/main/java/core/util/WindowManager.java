@@ -49,6 +49,8 @@ public class WindowManager {
      * Check if a window is open for a model
      * @param modelUuid The model UUID
      * @return true if a window is open, false otherwise
+     * @implNote There's a small race condition where the window could be closed between
+     *           the check and subsequent operations. Callers should handle this gracefully.
      */
     public boolean hasWindow(String modelUuid) {
         ChatWindow window = openWindows.get(modelUuid);
@@ -61,12 +63,15 @@ public class WindowManager {
      * @return true if the window was focused, false if no window was open
      */
     public boolean focusWindow(String modelUuid) {
-        ChatWindow window = openWindows.get(modelUuid);
-        if (window != null && window.isVisible()) {
-            window.toFront();
-            window.requestFocus();
-            return true;
-        }
-        return false;
+        final boolean[] focused = {false};
+        openWindows.computeIfPresent(modelUuid, (id, window) -> {
+            if (window != null && window.isVisible()) {
+                window.toFront();
+                window.requestFocus();
+                focused[0] = true;
+            }
+            return window;
+        });
+        return focused[0];
     }
 }
