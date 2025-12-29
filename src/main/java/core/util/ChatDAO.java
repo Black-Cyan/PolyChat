@@ -39,19 +39,6 @@ public class ChatDAO {
                     FOREIGN KEY(session_uuid) REFERENCES ChatSession(session_uuid) ON DELETE CASCADE
                 )
             """);
-            // Add deleted column to existing tables if they don't have it
-            try {
-                stmt.executeUpdate("ALTER TABLE ChatSession ADD COLUMN deleted INTEGER DEFAULT 0");
-            } catch (SQLException e) {
-                // Column likely already exists, but log for debugging
-                System.err.println("Note: Could not add 'deleted' column to ChatSession (may already exist): " + e.getMessage());
-            }
-            try {
-                stmt.executeUpdate("ALTER TABLE ChatMessage ADD COLUMN deleted INTEGER DEFAULT 0");
-            } catch (SQLException e) {
-                // Column likely already exists, but log for debugging
-                System.err.println("Note: Could not add 'deleted' column to ChatMessage (may already exist): " + e.getMessage());
-            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
