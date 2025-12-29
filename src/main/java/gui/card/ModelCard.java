@@ -157,9 +157,9 @@ public class ModelCard extends JPanel {
     private void addRightClickMenu() {
         JPopupMenu popup = new JPopupMenu();
 
-        JMenuItem edit = new JMenuItem("编辑");
-        JMenuItem delete = new JMenuItem("删除");
-        JMenuItem export = new JMenuItem("导出");
+        JMenuItem edit = new JMenuItem("编辑", loadIcon("/images/edit.png"));
+        JMenuItem delete = new JMenuItem("删除", loadIcon("/images/delete.png"));
+        JMenuItem export = new JMenuItem("导出", loadIcon("/images/export.png"));
 
         for (JMenuItem item : new JMenuItem[]{edit, delete, export}) {
             item.setBorder(
@@ -215,5 +215,10 @@ public class ModelCard extends JPanel {
                 new LineBorder(color, 1, true),
                 BorderFactory.createEmptyBorder(16, 18, 16, 18)
         ));
+    }
+
+    private ImageIcon loadIcon(String path) {
+        java.net.URL url = getClass().getResource(path);
+        return url != null ? new ImageIcon(url) : null;
     }
 }
