@@ -24,6 +24,7 @@ public class MainWindow extends JFrame {
     private JScrollPane scrollPane;
     private ModelDAO modelDAO;
     private ChatDAO chatDAO;
+    private java.util.List<ModelCard> modelCards = new java.util.ArrayList<>();
 
     public MainWindow() {
         setTitle("PolyChat");
@@ -62,6 +63,7 @@ public class MainWindow extends JFrame {
 
         JButton btnCreate = new SidebarButton("创建模型");
         JButton btnImport = new SidebarButton("导入模型");
+        JButton btnMultiChat = new SidebarButton("多模型对话");
 
         btnCreate.addActionListener(e -> {
             NewModelDialog dialog =
@@ -77,10 +79,14 @@ public class MainWindow extends JFrame {
             dialog.setVisible(true);
         });
 
+        btnMultiChat.addActionListener(e -> onMultiChat());
+
         menu.add(Box.createVerticalStrut(20));
         menu.add(btnCreate);
         menu.add(Box.createVerticalStrut(10));
         menu.add(btnImport);
+        menu.add(Box.createVerticalStrut(10));
+        menu.add(btnMultiChat);
         menu.add(Box.createVerticalGlue());
 
         return menu;
@@ -128,17 +134,40 @@ public class MainWindow extends JFrame {
     public void refreshModelList() {
         if (modelListPanel == null) return;
         modelListPanel.removeAll();
+        modelCards.clear();
 
         List<Model> models = modelDAO.getAllModels();
         for (Model m : models) {
             ModelCard card =
                     new ModelCard(this, m, modelDAO, chatDAO, this::refreshModelList);
+            modelCards.add(card);
             modelListPanel.add(card);
             modelListPanel.add(Box.createVerticalStrut(12));
         }
 
         modelListPanel.revalidate();
         modelListPanel.repaint();
+    }
+
+    private void onMultiChat() {
+        List<Model> selectedModels = new java.util.ArrayList<>();
+        for (ModelCard card : modelCards) {
+            if (card.isSelected()) {
+                selectedModels.add(card.getModel());
+            }
+        }
+
+        if (selectedModels.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "请至少选择一个模型进行多模型对话",
+                    "提示",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // Open MultiChatWindow with selected models
+        MultiChatWindow multiChatWindow = new MultiChatWindow(selectedModels, chatDAO, modelDAO);
+        multiChatWindow.setVisible(true);
     }
 
     // ===================== Main =====================

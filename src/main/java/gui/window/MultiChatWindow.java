@@ -1,0 +1,531 @@
+package gui.window;
+
+import com.formdev.flatlaf.intellijthemes.FlatArcDarkIJTheme;
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.data.MutableDataSet;
+
+import core.entity.ChatMessage;
+import core.entity.ChatSession;
+import core.entity.Model;
+import core.service.OpenAIService;
+import core.util.ChatDAO;
+import core.util.ModelDAO;
+
+import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.text.View;
+import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Multi-chat window that allows sending messages to multiple models simultaneously.
+ * Each model gets its own panel with streaming responses handled concurrently.
+ */
+public class MultiChatWindow extends JFrame {
+
+    static {
+        FlatArcDarkIJTheme.setup();
+        UIManager.put("ScrollBar.showButtons", false);
+        UIManager.put("ScrollBar.width", 12);
+        UIManager.put("ScrollBar.thumbArc", 999);
+        UIManager.put("ScrollBar.thumbInsets", new Insets(2, 2, 2, 2));
+        UIManager.put("Component.arc", 10);
+        UIManager.put("Button.arc", 8);
+        UIManager.put("TextComponent.arc", 8);
+    }
+
+    private final List<Model> models;
+    private final ChatDAO chatDAO;
+    private final ModelDAO modelDAO;
+    private final Map<String, ModelChatPanel> chatPanels = new HashMap<>();
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private volatile boolean isWindowActive = true;
+
+    private final Parser mdParser;
+    private final HtmlRenderer mdRenderer;
+
+    private final JTextArea inputArea = new JTextArea(3, 40);
+    private JButton btnSend;
+    private JPanel modelsContainer;
+
+    public MultiChatWindow(List<Model> models, ChatDAO chatDAO, ModelDAO modelDAO) {
+        this.models = models;
+        this.chatDAO = chatDAO;
+        this.modelDAO = modelDAO;
+
+        MutableDataSet mdOptions = new MutableDataSet();
+        mdParser = Parser.builder(mdOptions).build();
+        mdRenderer = HtmlRenderer.builder(mdOptions).build();
+
+        setTitle("Multi-Chat - " + models.size() + " models");
+        setSize(1400, 800);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+
+        add(buildMainPanel(), BorderLayout.CENTER);
+        add(buildInputPanel(), BorderLayout.SOUTH);
+
+        // Initialize chat panels for each model
+        initializeChatPanels();
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cleanup();
+            }
+        });
+    }
+
+    private void initializeChatPanels() {
+        for (Model model : models) {
+            Model fullModel = modelDAO.getModel(model.getUuid());
+            OpenAIService service = null;
+            if (fullModel != null && fullModel.getApiKey() != null) {
+                service = new OpenAIService(
+                        fullModel.getBaseUrl(),
+                        fullModel.getApiKey(),
+                        fullModel.getModelName()
+                );
+            }
+
+            // Create or get session for this model
+            ChatSession session = createOrGetSession(model);
+            
+            ModelChatPanel panel = new ModelChatPanel(model, service, session);
+            chatPanels.put(model.getUuid(), panel);
+            modelsContainer.add(panel);
+        }
+    }
+
+    private ChatSession createOrGetSession(Model model) {
+        // Create a new session for multi-chat
+        return chatDAO.createSession(model.getUuid(), "多模型对话");
+    }
+
+    private JPanel buildMainPanel() {
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.putClientProperty("FlatLaf.style", "background:$Panel.background");
+
+        // Create header
+        JPanel header = buildHeader();
+        mainPanel.add(header, BorderLayout.NORTH);
+
+        // Create scrollable container for model chat panels
+        modelsContainer = new JPanel();
+        modelsContainer.setLayout(new GridLayout(1, models.size(), 10, 0));
+        modelsContainer.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JScrollPane scrollPane = new JScrollPane(modelsContainer);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+        return mainPanel;
+    }
+
+    private JPanel buildHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBorder(new CompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0,
+                        UIManager.getColor("Component.borderColor")),
+                new EmptyBorder(10, 14, 10, 14)
+        ));
+
+        JLabel title = new JLabel("Multi-Chat: " + models.size() + " Models");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+
+        JLabel subtitle = new JLabel("Sending messages to all models simultaneously");
+        subtitle.setForeground(UIManager.getColor("Label.disabledForeground"));
+
+        JPanel titles = new JPanel();
+        titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+        titles.setOpaque(false);
+        titles.add(title);
+        titles.add(subtitle);
+
+        header.add(titles, BorderLayout.CENTER);
+
+        return header;
+    }
+
+    private JPanel buildInputPanel() {
+        JPanel inputBox = new JPanel(new BorderLayout());
+        inputBox.setBorder(new CompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0,
+                        UIManager.getColor("Component.borderColor")),
+                new EmptyBorder(8, 8, 8, 8)
+        ));
+
+        inputArea.setLineWrap(true);
+        inputArea.setWrapStyleWord(true);
+        inputArea.putClientProperty("FlatLaf.style",
+                "background:$EditorPane.background;" +
+                        "border:0,0,0,0;" +
+                        "font:+1");
+
+        JScrollPane inputScroll = new JScrollPane(inputArea);
+        inputScroll.setBorder(BorderFactory.createEmptyBorder());
+
+        btnSend = new JButton("Send to All");
+        btnSend.putClientProperty("JButton.buttonType", "default");
+        btnSend.addActionListener(e -> onSendToAll());
+
+        JPanel sendBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        sendBox.setOpaque(false);
+        sendBox.add(btnSend);
+
+        inputBox.add(inputScroll, BorderLayout.CENTER);
+        inputBox.add(sendBox, BorderLayout.SOUTH);
+
+        return inputBox;
+    }
+
+    private void onSendToAll() {
+        String text = inputArea.getText().trim();
+        if (text.isEmpty()) return;
+
+        setInputEnabled(false);
+        String userMessage = text;
+        inputArea.setText("");
+
+        // Send to all models concurrently
+        for (ModelChatPanel panel : chatPanels.values()) {
+            executorService.submit(() -> panel.sendMessage(userMessage));
+        }
+
+        setInputEnabled(true);
+    }
+
+    private void setInputEnabled(boolean enabled) {
+        btnSend.setEnabled(enabled);
+        inputArea.setEnabled(enabled);
+    }
+
+    private void cleanup() {
+        isWindowActive = false;
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Panel for a single model's chat within the multi-chat window
+     */
+    private class ModelChatPanel extends JPanel {
+        private final Model model;
+        private final OpenAIService openAIService;
+        private final ChatSession session;
+        private final JPanel messagePanel;
+        private JScrollPane messageScroll;
+        private JEditorPane currentAssistantMessage = null;
+
+        public ModelChatPanel(Model model, OpenAIService service, ChatSession session) {
+            this.model = model;
+            this.openAIService = service;
+            this.session = session;
+
+            setLayout(new BorderLayout());
+            setBorder(new LineBorder(UIManager.getColor("Component.borderColor"), 1, true));
+
+            // Add header with model name
+            add(buildModelHeader(), BorderLayout.NORTH);
+
+            // Add message panel
+            messagePanel = new JPanel();
+            messagePanel.setLayout(new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
+            messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+            messagePanel.putClientProperty("FlatLaf.style", "background:$EditorPane.background");
+
+            messageScroll = new JScrollPane(messagePanel);
+            messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            messageScroll.setBorder(BorderFactory.createEmptyBorder());
+            messageScroll.getVerticalScrollBar().setUnitIncrement(16);
+            messageScroll.getViewport().setOpaque(false);
+            messageScroll.setOpaque(false);
+
+            add(messageScroll, BorderLayout.CENTER);
+
+            // Show warning if API not configured
+            if (openAIService == null) {
+                JLabel warning = new JLabel("<html><center>API未配置<br/>无法发送消息</center></html>");
+                warning.setForeground(new Color(200, 150, 0));
+                warning.setHorizontalAlignment(SwingConstants.CENTER);
+                messagePanel.add(warning);
+            }
+
+            // Load existing messages
+            loadMessages();
+        }
+
+        private JPanel buildModelHeader() {
+            JPanel header = new JPanel(new BorderLayout());
+            header.setBorder(new CompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0,
+                            UIManager.getColor("Component.borderColor")),
+                    new EmptyBorder(8, 10, 8, 10)
+            ));
+
+            JLabel title = new JLabel(
+                    model.getNickname().isEmpty()
+                            ? model.getModelName()
+                            : model.getNickname());
+            title.setFont(title.getFont().deriveFont(Font.BOLD, 14f));
+
+            JLabel subtitle = new JLabel(model.getModelName());
+            subtitle.setForeground(UIManager.getColor("Label.disabledForeground"));
+            subtitle.setFont(subtitle.getFont().deriveFont(11f));
+
+            JPanel titles = new JPanel();
+            titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
+            titles.setOpaque(false);
+            titles.add(title);
+            titles.add(subtitle);
+
+            header.add(titles, BorderLayout.CENTER);
+
+            return header;
+        }
+
+        private void loadMessages() {
+            messagePanel.removeAll();
+            if (session == null) {
+                return;
+            }
+            for (ChatMessage msg : chatDAO.listMessages(session.getUuid())) {
+                addMessageBubble(msg);
+            }
+            messagePanel.add(Box.createVerticalGlue());
+            revalidate();
+            SwingUtilities.invokeLater(() ->
+                    messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE));
+        }
+
+        public void sendMessage(String userMessage) {
+            if (!isWindowActive || openAIService == null) {
+                return;
+            }
+
+            // Save user message to database
+            chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
+
+            // Add user message to UI
+            SwingUtilities.invokeLater(() -> {
+                if (!isWindowActive) return;
+                
+                List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+                if (!currentHistory.isEmpty()) {
+                    ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
+                    addMessageBubble(userMsg);
+                    messagePanel.revalidate();
+                    messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE);
+                }
+
+                // Create streaming bubble
+                createStreamingAssistantBubble();
+            });
+
+            // Prepare API messages
+            List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+            List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
+            for (ChatMessage msg : currentHistory) {
+                apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
+            }
+
+            // Call API with streaming
+            StringBuilder fullResponse = new StringBuilder();
+            openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
+                @Override
+                public void onChunk(String content) {
+                    fullResponse.append(content);
+                    if (isWindowActive) {
+                        SwingUtilities.invokeLater(() -> {
+                            if (currentAssistantMessage != null && isWindowActive) {
+                                renderMarkdown(currentAssistantMessage, fullResponse.toString());
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onComplete() {
+                    if (!isWindowActive) return;
+
+                    String assistantResponse = fullResponse.toString();
+                    chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
+
+                    SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+
+                        // Remove streaming bubble and reload messages
+                        if (currentAssistantMessage != null) {
+                            Container parent = currentAssistantMessage.getParent();
+                            if (parent != null) {
+                                Container grandParent = parent.getParent();
+                                if (grandParent == messagePanel) {
+                                    messagePanel.remove(grandParent);
+                                }
+                            }
+                        }
+                        currentAssistantMessage = null;
+                        loadMessages();
+                    });
+                }
+
+                @Override
+                public void onError(Exception ex) {
+                    if (!isWindowActive) return;
+
+                    SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+
+                        if (currentAssistantMessage != null) {
+                            renderMarkdown(currentAssistantMessage,
+                                    fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
+                        }
+                        currentAssistantMessage = null;
+                    });
+                }
+            });
+        }
+
+        private void addMessageBubble(ChatMessage msg) {
+            boolean isUser = "user".equalsIgnoreCase(msg.getRole());
+
+            JPanel line = new JPanel();
+            line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
+            line.setOpaque(false);
+
+            JPanel bubble = new JPanel(new BorderLayout());
+            bubble.setBackground(isUser
+                    ? UIManager.getColor("Button.default.background")
+                    : UIManager.getColor("Panel.background"));
+            bubble.setBorder(new CompoundBorder(
+                    new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                    new EmptyBorder(6, 10, 6, 10)
+            ));
+
+            JEditorPane textPane = createMarkdownPane(msg.getContent());
+            applyBubbleWidth(bubble, textPane);
+            bubble.add(textPane, BorderLayout.CENTER);
+
+            if (isUser) {
+                line.add(Box.createHorizontalGlue());
+                line.add(bubble);
+            } else {
+                line.add(bubble);
+                line.add(Box.createHorizontalGlue());
+            }
+
+            line.setBorder(new EmptyBorder(4, 4, 4, 4));
+            messagePanel.add(line);
+            messagePanel.add(Box.createVerticalStrut(4));
+        }
+
+        private void createStreamingAssistantBubble() {
+            JPanel line = new JPanel();
+            line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
+            line.setOpaque(false);
+
+            JPanel bubble = new JPanel(new BorderLayout());
+            bubble.setBackground(UIManager.getColor("Panel.background"));
+            bubble.setBorder(new CompoundBorder(
+                    new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                    new EmptyBorder(6, 10, 6, 10)
+            ));
+
+            currentAssistantMessage = createMarkdownPane("正在思考...");
+            applyBubbleWidth(bubble, currentAssistantMessage);
+            bubble.add(currentAssistantMessage, BorderLayout.CENTER);
+
+            line.add(bubble);
+            line.add(Box.createHorizontalGlue());
+
+            line.setBorder(new EmptyBorder(4, 4, 4, 4));
+            messagePanel.add(line);
+            messagePanel.add(Box.createVerticalStrut(4));
+
+            messagePanel.revalidate();
+            SwingUtilities.invokeLater(() ->
+                    messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE));
+        }
+
+        private JEditorPane createMarkdownPane(String content) {
+            JEditorPane pane = new JEditorPane();
+            pane.setContentType("text/html");
+            pane.setEditable(false);
+            pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+            pane.setOpaque(false);
+            pane.setBorder(new EmptyBorder(0, 0, 0, 0));
+            renderMarkdown(pane, content);
+            return pane;
+        }
+
+        private void renderMarkdown(JEditorPane pane, String content) {
+            String safe = content == null ? "" : content;
+            String html = mdRenderer.render(mdParser.parse(safe));
+
+            Font labelFont = UIManager.getFont("Label.font");
+            String fontFamily = labelFont != null ? labelFont.getFamily() : "SansSerif";
+
+            String body = "<html><head><style>" +
+                    "body{margin:0;padding:0;font-family:" + fontFamily + ";font-size:12px;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;}" +
+                    "p{margin:0 0 4px 0;}" +
+                    "ul,ol{margin:0 0 4px 12px;}" +
+                    "pre{margin:4px 0;padding:4px;background:" + toRgb(UIManager.getColor("Panel.background")) + ";border-radius:4px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;font-size:11px;}" +
+                    "code{font-family:monospace;font-size:11px;}" +
+                    "</style></head><body>" + html + "</body></html>";
+            pane.setText(body);
+            pane.setCaretPosition(0);
+        }
+
+        private String toRgb(Color c) {
+            if (c == null) return "#f0f0f0";
+            return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
+        }
+
+        private void applyBubbleWidth(JPanel bubble, JEditorPane content) {
+            int maxW = Math.max(180, getWidth() - 60);
+            bubble.setMaximumSize(new Dimension(maxW, Integer.MAX_VALUE));
+
+            Insets bubbleInsets = bubble.getBorder() != null ? bubble.getBorder().getBorderInsets(bubble) : new Insets(0, 0, 0, 0);
+            int horizontalPadding = bubbleInsets.left + bubbleInsets.right;
+            int contentW = Math.max(120, maxW - horizontalPadding);
+
+            content.setSize(new Dimension(contentW, Integer.MAX_VALUE));
+
+            View view = content.getUI().getRootView(content);
+            if (view != null) {
+                view.setSize(contentW, Integer.MAX_VALUE);
+                int prefH = (int) Math.ceil(view.getPreferredSpan(View.Y_AXIS));
+                content.setPreferredSize(new Dimension(contentW, prefH));
+            } else {
+                Dimension pref = content.getPreferredSize();
+                pref.width = contentW;
+                content.setPreferredSize(pref);
+            }
+
+            bubble.revalidate();
+        }
+    }
+}

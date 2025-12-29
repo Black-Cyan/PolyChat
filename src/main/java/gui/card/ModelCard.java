@@ -22,6 +22,7 @@ public class ModelCard extends JPanel {
     private final Frame parent;
     private final ChatDAO chatDAO;
     private final Runnable refreshCallback;
+    private JCheckBox selectCheckbox;
 
     public ModelCard(Frame parent, Model model, ModelDAO modelDAO) {
         this(parent, model, modelDAO, null, null);
@@ -61,6 +62,11 @@ public class ModelCard extends JPanel {
         JPanel header = new JPanel(new BorderLayout(10, 0));
         header.setOpaque(false);
 
+        // Add selection checkbox
+        selectCheckbox = new JCheckBox();
+        selectCheckbox.setOpaque(false);
+        selectCheckbox.setFocusPainted(false);
+
         JLabel icon = new JLabel(UIManager.getIcon("FileView.computerIcon"));
         icon.setForeground(UIManager.getColor("Component.accentColor"));
 
@@ -82,8 +88,9 @@ public class ModelCard extends JPanel {
         titleBox.add(title);
         titleBox.add(subtitle);
 
-        header.add(icon, BorderLayout.WEST);
-        header.add(titleBox, BorderLayout.CENTER);
+        header.add(selectCheckbox, BorderLayout.WEST);
+        header.add(icon, BorderLayout.CENTER);
+        header.add(titleBox, BorderLayout.EAST);
 
         // ================= Body =================
 
@@ -136,6 +143,14 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getButton() != MouseEvent.BUTTON1) return;
+                
+                // Check if click was on checkbox - if so, don't open chat window
+                if (selectCheckbox != null && 
+                    selectCheckbox.contains(SwingUtilities.convertPoint(
+                        (Component) e.getSource(), e.getPoint(), selectCheckbox))) {
+                    return;
+                }
+                
                 if (chatDAO != null && modelDAO != null) {
                     WindowManager wm = WindowManager.getInstance();
                     if (wm.hasWindow(model.getUuid())) {
@@ -220,5 +235,31 @@ public class ModelCard extends JPanel {
     private ImageIcon loadIcon(String path) {
         java.net.URL url = getClass().getResource(path);
         return url != null ? new ImageIcon(url) : null;
+    }
+
+    /**
+     * Check if this model card is selected for multi-chat
+     * @return true if selected, false otherwise
+     */
+    public boolean isSelected() {
+        return selectCheckbox != null && selectCheckbox.isSelected();
+    }
+
+    /**
+     * Set the selection state of this model card
+     * @param selected true to select, false to deselect
+     */
+    public void setSelected(boolean selected) {
+        if (selectCheckbox != null) {
+            selectCheckbox.setSelected(selected);
+        }
+    }
+
+    /**
+     * Get the model associated with this card
+     * @return the model
+     */
+    public Model getModel() {
+        return model;
     }
 }
