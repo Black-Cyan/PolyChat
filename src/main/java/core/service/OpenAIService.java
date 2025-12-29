@@ -64,7 +64,7 @@ public class OpenAIService {
         requestBody.add("messages", messagesArray);
 
         Request request = new Request.Builder()
-                .url(baseUrl + "v1/chat/completions")
+                .url(baseUrl + "chat/completions")
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(RequestBody.create(
@@ -150,7 +150,7 @@ public class OpenAIService {
         requestBody.add("messages", messagesArray);
 
         Request request = new Request.Builder()
-                .url(baseUrl + "v1/chat/completions")
+                .url(baseUrl + "chat/completions")
                 .addHeader("Authorization", "Bearer " + apiKey)
                 .addHeader("Content-Type", "application/json")
                 .post(RequestBody.create(

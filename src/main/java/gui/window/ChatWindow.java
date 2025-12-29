@@ -10,10 +10,16 @@ import core.util.WindowManager;
 import core.util.ModelDAO;
 import core.service.OpenAIService;
 
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.data.MutableDataSet;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.text.SimpleDateFormat;
@@ -48,13 +54,16 @@ public class ChatWindow extends JFrame {
     private final JList<ChatSession> sessionList =
             new JList<>(sessionListModel);
 
+    private final Parser mdParser;
+    private final HtmlRenderer mdRenderer;
+
     private final JPanel messagePanel = new JPanel();
     private JScrollPane messageScroll;
     private final JTextArea inputArea = new JTextArea(3, 40);
     private JButton btnSend;
 
     private ChatSession currentSession;
-    private JTextArea currentAssistantMessage = null;
+    private JEditorPane currentAssistantMessage = null;
 
     // ===================== 构造函数 =====================
 
@@ -62,6 +71,10 @@ public class ChatWindow extends JFrame {
         this.model = model;
         this.chatDAO = chatDAO;
         this.modelDAO = modelDAO;
+
+        MutableDataSet mdOptions = new MutableDataSet();
+        mdParser = Parser.builder(mdOptions).build();
+        mdRenderer = HtmlRenderer.builder(mdOptions).build();
 
         // Get full model with API key
         Model fullModel = modelDAO.getModel(model.getUuid());
@@ -85,6 +98,13 @@ public class ChatWindow extends JFrame {
 
         add(buildSessionPane(), BorderLayout.WEST);
         add(buildChatPane(), BorderLayout.CENTER);
+
+        // keep bubble widths in sync with viewport size
+        messageScroll.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent e) {
+                updateBubbleWidths();
+            }
+        });
 
         loadSessions();
 
@@ -314,40 +334,24 @@ public class ChatWindow extends JFrame {
     }
 
     private void addMessageBubble(ChatMessage msg) {
-        boolean isUser =
-                "user".equalsIgnoreCase(msg.getRole());
+        boolean isUser = "user".equalsIgnoreCase(msg.getRole());
 
         JPanel line = new JPanel();
-        line.setLayout(
-                new BoxLayout(line, BoxLayout.X_AXIS));
+        line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
         line.setOpaque(false);
 
         JPanel bubble = new JPanel(new BorderLayout());
         bubble.setBackground(isUser
-                ? UIManager.getColor(
-                "Button.default.background")
-                : UIManager.getColor(
-                "Panel.background"));
+                ? UIManager.getColor("Button.default.background")
+                : UIManager.getColor("Panel.background"));
         bubble.setBorder(new CompoundBorder(
-                new LineBorder(
-                        UIManager.getColor(
-                                "Component.borderColor"),
-                        1, true),
-                new EmptyBorder(10, 14, 10, 14)
+                new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                new EmptyBorder(6, 10, 6, 10)
         ));
-        bubble.setMaximumSize(
-                new Dimension(800, Integer.MAX_VALUE));
 
-        JTextArea text =
-                new JTextArea(msg.getContent());
-        text.setEditable(false);
-        text.setLineWrap(true);
-        text.setWrapStyleWord(true);
-        text.setOpaque(false);
-        text.setBorder(null);
-        text.setFont(text.getFont().deriveFont(14f));
-
-        bubble.add(text, BorderLayout.CENTER);
+        JEditorPane textPane = createMarkdownPane(msg.getContent());
+        applyBubbleWidth(bubble, textPane);
+        bubble.add(textPane, BorderLayout.CENTER);
 
         if (isUser) {
             line.add(Box.createHorizontalGlue());
@@ -357,39 +361,65 @@ public class ChatWindow extends JFrame {
             line.add(Box.createHorizontalGlue());
         }
 
-        line.setBorder(
-                new EmptyBorder(6, 6, 6, 6));
+        line.setBorder(new EmptyBorder(6, 6, 6, 6));
         messagePanel.add(line);
-        messagePanel.add(
-                Box.createVerticalStrut(6));
+        messagePanel.add(Box.createVerticalStrut(6));
+    }
+
+    private JEditorPane createMarkdownPane(String content) {
+        JEditorPane pane = new JEditorPane();
+        pane.setContentType("text/html");
+        pane.setEditable(false);
+        pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        pane.setOpaque(false);
+        pane.setBorder(new EmptyBorder(0, 0, 0, 0));
+        renderMarkdown(pane, content);
+        return pane;
+    }
+
+    private void renderMarkdown(JEditorPane pane, String content) {
+        String safe = content == null ? "" : content;
+        String html = mdRenderer.render(mdParser.parse(safe));
+        String body = "<html><head><style>" +
+                "body{margin:0;padding:0;font-family:" + UIManager.getFont("Label.font").getFamily() + ";overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;}" +
+                "p{margin:0 0 4px 0;}" +
+                "ul,ol{margin:0 0 4px 18px;}" +
+                "pre{margin:4px 0;padding:6px;background:" + toRgb(UIManager.getColor("Panel.background")) + ";border-radius:6px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;}" +
+                "code{font-family:monospace;}" +
+                "</style></head><body>" + html + "</body></html>";
+        pane.setText(body);
+        pane.setCaretPosition(0);
+    }
+
+    private static String toRgb(Color c) {
+        if (c == null) return "#f0f0f0";
+        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
+    }
+
+    private int getBubbleMaxWidth() {
+        if (messageScroll != null && messageScroll.getViewport() != null) {
+            int vw = messageScroll.getViewport().getWidth();
+            if (vw > 0) {
+                return Math.max(220, vw - 40);
+            }
+        }
+        return 800;
     }
 
     private void createStreamingAssistantBubble() {
         JPanel line = new JPanel();
-        line.setLayout(
-                new BoxLayout(line, BoxLayout.X_AXIS));
+        line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
         line.setOpaque(false);
 
         JPanel bubble = new JPanel(new BorderLayout());
         bubble.setBackground(UIManager.getColor("Panel.background"));
         bubble.setBorder(new CompoundBorder(
-                new LineBorder(
-                        UIManager.getColor("Component.borderColor"),
-                        1, true),
-                new EmptyBorder(10, 14, 10, 14)
+                new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                new EmptyBorder(6, 10, 6, 10)
         ));
-        bubble.setMaximumSize(
-                new Dimension(800, Integer.MAX_VALUE));
 
-        currentAssistantMessage = new JTextArea();
-        currentAssistantMessage.setEditable(false);
-        currentAssistantMessage.setLineWrap(true);
-        currentAssistantMessage.setWrapStyleWord(true);
-        currentAssistantMessage.setOpaque(false);
-        currentAssistantMessage.setBorder(null);
-        currentAssistantMessage.setFont(currentAssistantMessage.getFont().deriveFont(14f));
-        currentAssistantMessage.setText("正在思考...");
-
+        currentAssistantMessage = createMarkdownPane("正在思考...");
+        applyBubbleWidth(bubble, currentAssistantMessage);
         bubble.add(currentAssistantMessage, BorderLayout.CENTER);
 
         line.add(bubble);
@@ -398,12 +428,42 @@ public class ChatWindow extends JFrame {
         line.setBorder(new EmptyBorder(6, 6, 6, 6));
         messagePanel.add(line);
         messagePanel.add(Box.createVerticalStrut(6));
-        messagePanel.add(Box.createVerticalGlue());
 
         messagePanel.revalidate();
         SwingUtilities.invokeLater(() ->
                 messageScroll.getVerticalScrollBar()
                         .setValue(Integer.MAX_VALUE));
+    }
+
+    private void updateBubbleWidths() {
+        int maxW = getBubbleMaxWidth();
+        for (Component comp : messagePanel.getComponents()) {
+            if (comp instanceof JPanel line) {
+                for (Component child : line.getComponents()) {
+                    if (child instanceof JPanel bubble) {
+                        Component center = ((BorderLayout) bubble.getLayout()).getLayoutComponent(BorderLayout.CENTER);
+                        if (center instanceof JEditorPane pane) {
+                            applyBubbleWidth(bubble, pane, maxW);
+                        }
+                    }
+                }
+            }
+        }
+        messagePanel.revalidate();
+    }
+
+    private void applyBubbleWidth(JPanel bubble, JEditorPane content) {
+        applyBubbleWidth(bubble, content, getBubbleMaxWidth());
+    }
+
+    private void applyBubbleWidth(JPanel bubble, JEditorPane content, int maxW) {
+        bubble.setMaximumSize(new Dimension(maxW, Integer.MAX_VALUE));
+        int contentW = Math.max(180, maxW - 24); // subtract bubble padding
+        content.setSize(new Dimension(contentW, Short.MAX_VALUE));
+        Dimension pref = content.getPreferredSize();
+        pref.width = contentW; // allow expanding when viewport grows
+        content.setPreferredSize(pref);
+        bubble.revalidate();
     }
 
     private void onSend(ActionEvent e) {
@@ -424,10 +484,10 @@ public class ChatWindow extends JFrame {
         }
 
         if (openAIService == null) {
-            JOptionPane.showMessageDialog(this, 
-                "API配置未完成，无法发送消息", 
-                "错误", 
-                JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "API配置未完成，无法发送消息",
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -474,15 +534,14 @@ public class ChatWindow extends JFrame {
         // Call OpenAI API in background thread
         new Thread(() -> {
             StringBuilder fullResponse = new StringBuilder();
-            
+
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
                 @Override
                 public void onChunk(String content) {
                     fullResponse.append(content);
                     SwingUtilities.invokeLater(() -> {
                         if (currentAssistantMessage != null) {
-                            currentAssistantMessage.setText(fullResponse.toString());
-                            currentAssistantMessage.setCaretPosition(fullResponse.length());
+                            renderMarkdown(currentAssistantMessage, fullResponse.toString());
                         }
                     });
                 }
@@ -502,6 +561,7 @@ public class ChatWindow extends JFrame {
                         btnSend.setEnabled(true);
                         inputArea.setEnabled(true);
                         inputArea.requestFocus();
+                        loadMessages();
                     });
                 }
 
@@ -509,9 +569,8 @@ public class ChatWindow extends JFrame {
                 public void onError(Exception ex) {
                     SwingUtilities.invokeLater(() -> {
                         if (currentAssistantMessage != null) {
-                            currentAssistantMessage.setText(
-                                    fullResponse.toString() + 
-                                    "\n\n[Error: " + ex.getMessage() + "]");
+                            renderMarkdown(currentAssistantMessage,
+                                    fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
                         }
                         btnSend.setEnabled(true);
                         inputArea.setEnabled(true);

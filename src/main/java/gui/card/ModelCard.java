@@ -173,6 +173,7 @@ public class ModelCard extends JPanel {
             EditModelDialog dialog =
                     new EditModelDialog(parent, modelDAO, model);
             dialog.setVisible(true);
+            if (refreshCallback != null) refreshCallback.run();
         });
 
         delete.addActionListener(e -> {
