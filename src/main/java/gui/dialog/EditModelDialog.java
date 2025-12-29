@@ -15,6 +15,7 @@ public class EditModelDialog extends JDialog {
 
     private final ModelDAO modelDAO;
     private final Model model;
+    private boolean changesMade = false;
 
     public EditModelDialog(Frame parent, ModelDAO modelDAO, Model model) {
         super(parent, "编辑模型", true);
@@ -101,9 +102,14 @@ public class EditModelDialog extends JDialog {
             }
 
             modelDAO.updateModelInfo(model.getUuid(), baseUrl, modelName, nickname);
+            changesMade = true;
             dispose();
         });
 
         btnCancel.addActionListener(e -> dispose());
+    }
+    
+    public boolean isChangesMade() {
+        return changesMade;
     }
 }

@@ -2,15 +2,15 @@ package core.util;
 
 import gui.window.ChatWindow;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages open ChatWindow instances to prevent duplicate windows for the same model
  */
 public class WindowManager {
     private static final WindowManager instance = new WindowManager();
-    private final Map<String, ChatWindow> openWindows = new HashMap<>();
+    private final Map<String, ChatWindow> openWindows = new ConcurrentHashMap<>();
 
     private WindowManager() {
     }

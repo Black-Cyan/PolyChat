@@ -91,37 +91,39 @@ public class OpenAIService {
                         return;
                     }
 
-                    String line;
-                    java.io.BufferedReader reader = new java.io.BufferedReader(
-                            new java.io.InputStreamReader(body.byteStream()));
-                    
-                    StringBuilder fullContent = new StringBuilder();
-                    
-                    while ((line = reader.readLine()) != null) {
-                        if (line.startsWith("data: ")) {
-                            String data = line.substring(6);
-                            if ("[DONE]".equals(data)) {
-                                break;
-                            }
-                            
-                            try {
-                                JsonObject chunk = gson.fromJson(data, JsonObject.class);
-                                JsonArray choices = chunk.getAsJsonArray("choices");
-                                if (choices != null && choices.size() > 0) {
-                                    JsonObject choice = choices.get(0).getAsJsonObject();
-                                    JsonObject delta = choice.getAsJsonObject("delta");
-                                    if (delta != null && delta.has("content")) {
-                                        String content = delta.get("content").getAsString();
-                                        fullContent.append(content);
-                                        callback.onChunk(content);
-                                    }
+                    try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(body.byteStream()))) {
+                        
+                        String line;
+                        StringBuilder fullContent = new StringBuilder();
+                        
+                        while ((line = reader.readLine()) != null) {
+                            if (line.startsWith("data: ")) {
+                                String data = line.substring(6);
+                                if ("[DONE]".equals(data)) {
+                                    break;
                                 }
-                            } catch (Exception e) {
-                                // Skip invalid JSON chunks
+                                
+                                try {
+                                    JsonObject chunk = gson.fromJson(data, JsonObject.class);
+                                    JsonArray choices = chunk.getAsJsonArray("choices");
+                                    if (choices != null && choices.size() > 0) {
+                                        JsonObject choice = choices.get(0).getAsJsonObject();
+                                        JsonObject delta = choice.getAsJsonObject("delta");
+                                        if (delta != null && delta.has("content")) {
+                                            String content = delta.get("content").getAsString();
+                                            fullContent.append(content);
+                                            callback.onChunk(content);
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    // Log and skip invalid JSON chunks
+                                    System.err.println("Failed to parse SSE chunk: " + data + " - " + e.getMessage());
+                                }
                             }
                         }
+                        callback.onComplete();
                     }
-                    callback.onComplete();
                 } catch (Exception e) {
                     callback.onError(e);
                 }

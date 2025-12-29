@@ -25,6 +25,9 @@ import java.awt.event.WindowEvent;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class ChatWindow extends JFrame {
 
@@ -45,6 +48,8 @@ public class ChatWindow extends JFrame {
     private final ChatDAO chatDAO;
     private final ModelDAO modelDAO;
     private OpenAIService openAIService;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private volatile boolean isWindowActive = true;
 
     private static final SimpleDateFormat TIME_FMT =
             new SimpleDateFormat("MM-dd HH:mm");
@@ -98,6 +103,25 @@ public class ChatWindow extends JFrame {
 
         add(buildSessionPane(), BorderLayout.WEST);
         add(buildChatPane(), BorderLayout.CENTER);
+        
+        // Show warning banner if API is not configured
+        if (openAIService == null) {
+            JPanel warningPanel = new JPanel(new BorderLayout());
+            warningPanel.setBackground(new Color(255, 200, 0, 30));
+            warningPanel.setBorder(new CompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, 
+                            new Color(255, 200, 0)),
+                    new EmptyBorder(8, 12, 8, 12)
+            ));
+            JLabel warningLabel = new JLabel("⚠ API配置未完成，无法发送消息。请在编辑模型中配置API Key。");
+            warningLabel.setForeground(new Color(200, 150, 0));
+            warningPanel.add(warningLabel, BorderLayout.CENTER);
+            add(warningPanel, BorderLayout.NORTH);
+            
+            // Disable input area
+            inputArea.setEnabled(false);
+            btnSend.setEnabled(false);
+        }
 
         // keep bubble widths in sync with viewport size
         messageScroll.getViewport().addComponentListener(new ComponentAdapter() {
@@ -111,11 +135,21 @@ public class ChatWindow extends JFrame {
         // Register this window with the WindowManager
         WindowManager.getInstance().registerWindow(model.getUuid(), this);
 
-        // Unregister when closing
+        // Unregister and cleanup when closing
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
+                isWindowActive = false;
                 WindowManager.getInstance().unregisterWindow(model.getUuid());
+                executorService.shutdown();
+                try {
+                    if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                        executorService.shutdownNow();
+                    }
+                } catch (InterruptedException ex) {
+                    executorService.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
             }
         });
     }
@@ -492,25 +526,11 @@ public class ChatWindow extends JFrame {
         }
 
         // Disable send button and clear input
-        btnSend.setEnabled(false);
-        inputArea.setEnabled(false);
+        setInputEnabled(false);
         String userMessage = text;
         inputArea.setText("");
 
-        // Add user message to UI
-        ChatMessage userMsg = new ChatMessage(
-                java.util.UUID.randomUUID().toString(),
-                "user",
-                userMessage,
-                System.currentTimeMillis()
-        );
-        addMessageBubble(userMsg);
-        messagePanel.revalidate();
-        SwingUtilities.invokeLater(() ->
-                messageScroll.getVerticalScrollBar()
-                        .setValue(Integer.MAX_VALUE));
-
-        // Save user message to database
+        // Save user message to database first
         chatDAO.addMessage(
                 currentSession.getUuid(),
                 "user",
@@ -518,10 +538,20 @@ public class ChatWindow extends JFrame {
                 System.currentTimeMillis()
         );
 
+        // Load the persisted user message from database
+        List<ChatMessage> currentHistory = chatDAO.listMessages(currentSession.getUuid());
+        ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
+        
+        // Add user message to UI using the database ID
+        addMessageBubble(userMsg);
+        messagePanel.revalidate();
+        SwingUtilities.invokeLater(() ->
+                messageScroll.getVerticalScrollBar()
+                        .setValue(Integer.MAX_VALUE));
+
         // Prepare message history for API call
         List<core.service.OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
-        List<ChatMessage> history = chatDAO.listMessages(currentSession.getUuid());
-        for (ChatMessage msg : history) {
+        for (ChatMessage msg : currentHistory) {
             apiMessages.add(new core.service.OpenAIService.ChatMessage(
                     msg.getRole(),
                     msg.getContent()
@@ -531,23 +561,27 @@ public class ChatWindow extends JFrame {
         // Create assistant message bubble for streaming
         createStreamingAssistantBubble();
 
-        // Call OpenAI API in background thread
-        new Thread(() -> {
+        // Call OpenAI API in background thread using executor
+        executorService.submit(() -> {
             StringBuilder fullResponse = new StringBuilder();
 
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
                 @Override
                 public void onChunk(String content) {
                     fullResponse.append(content);
-                    SwingUtilities.invokeLater(() -> {
-                        if (currentAssistantMessage != null) {
-                            renderMarkdown(currentAssistantMessage, fullResponse.toString());
-                        }
-                    });
+                    if (isWindowActive) {
+                        SwingUtilities.invokeLater(() -> {
+                            if (currentAssistantMessage != null && isWindowActive) {
+                                renderMarkdown(currentAssistantMessage, fullResponse.toString());
+                            }
+                        });
+                    }
                 }
 
                 @Override
                 public void onComplete() {
+                    if (!isWindowActive) return;
+                    
                     // Save assistant message to database
                     chatDAO.addMessage(
                             currentSession.getUuid(),
@@ -557,23 +591,42 @@ public class ChatWindow extends JFrame {
                     );
 
                     SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+                        
+                        // Remove streaming bubble and reload all messages from database
+                        if (currentAssistantMessage != null) {
+                            Container parent = currentAssistantMessage.getParent();
+                            if (parent != null) {
+                                Container grandParent = parent.getParent();
+                                if (grandParent == messagePanel) {
+                                    messagePanel.remove(grandParent);
+                                }
+                            }
+                        }
                         currentAssistantMessage = null;
-                        btnSend.setEnabled(true);
-                        inputArea.setEnabled(true);
-                        inputArea.requestFocus();
+                        
+                        // Reload messages from database to show the persisted assistant message
                         loadMessages();
+                        
+                        setInputEnabled(true);
+                        inputArea.requestFocus();
                     });
                 }
 
                 @Override
                 public void onError(Exception ex) {
+                    if (!isWindowActive) return;
+                    
                     SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+                        
                         if (currentAssistantMessage != null) {
                             renderMarkdown(currentAssistantMessage,
                                     fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
                         }
-                        btnSend.setEnabled(true);
-                        inputArea.setEnabled(true);
+                        currentAssistantMessage = null;
+                        
+                        setInputEnabled(true);
                         JOptionPane.showMessageDialog(
                                 ChatWindow.this,
                                 "发送失败: " + ex.getMessage(),
@@ -583,7 +636,12 @@ public class ChatWindow extends JFrame {
                     });
                 }
             });
-        }).start();
+        });
+    }
+
+    private void setInputEnabled(boolean enabled) {
+        btnSend.setEnabled(enabled);
+        inputArea.setEnabled(enabled);
     }
 
     // ===================== Renderer =====================
