@@ -200,7 +200,11 @@ public class ChatWindow extends JFrame {
         sessionList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 currentSession = sessionList.getSelectedValue();
-                loadMessages();
+                if (currentSession == null) {
+                    clearMessages();
+                } else {
+                    loadMessages();
+                }
             }
         });
 
@@ -287,15 +291,10 @@ public class ChatWindow extends JFrame {
         );
         if (confirm == JOptionPane.YES_OPTION) {
             chatDAO.deleteSession(currentSession.getUuid());
-            loadSessions();
-            if (sessionListModel.isEmpty()) {
-                currentSession = null;
-            } else {
-                sessionList.setSelectedIndex(0);
-            }
-            messagePanel.removeAll();
-            messagePanel.revalidate();
-            messagePanel.repaint();
+            loadSessions(false);
+            currentSession = null;
+            sessionList.clearSelection();
+            clearMessages();
         }
     }
 
@@ -350,19 +349,26 @@ public class ChatWindow extends JFrame {
     }
 
     private void loadSessions() {
+        loadSessions(false);
+    }
+
+    private void loadSessions(boolean selectFirst) {
         sessionListModel.clear();
         List<ChatSession> sessions =
                 chatDAO.listSessions(model.getUuid());
         for (ChatSession s : sessions) {
             sessionListModel.addElement(s);
         }
-        if (!sessions.isEmpty()) {
+        currentSession = null;
+        sessionList.clearSelection();
+        clearMessages();
+        if (selectFirst && !sessions.isEmpty()) {
             sessionList.setSelectedIndex(0);
         }
     }
 
     private void loadMessages() {
-        messagePanel.removeAll();
+        clearMessages();
         if (currentSession == null) {
             repaint();
             return;
@@ -376,6 +382,12 @@ public class ChatWindow extends JFrame {
         SwingUtilities.invokeLater(() ->
                 messageScroll.getVerticalScrollBar()
                         .setValue(Integer.MAX_VALUE));
+    }
+
+    private void clearMessages() {
+        messagePanel.removeAll();
+        messagePanel.revalidate();
+        messagePanel.repaint();
     }
 
     private void addMessageBubble(ChatMessage msg) {

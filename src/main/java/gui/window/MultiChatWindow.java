@@ -18,14 +18,15 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.text.View;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +65,7 @@ public class MultiChatWindow extends JFrame {
     private final JTextArea inputArea = new JTextArea(3, 40);
     private JButton btnSend;
     private JPanel modelsContainer;
+    private JScrollPane modelsScrollPane;
 
     public MultiChatWindow(List<Model> models, ChatDAO chatDAO, ModelDAO modelDAO) {
         this.models = models;
@@ -136,7 +138,8 @@ public class MultiChatWindow extends JFrame {
         modelsContainer.setLayout(new GridLayout(1, models.size(), 10, 0));
         modelsContainer.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        JScrollPane scrollPane = new JScrollPane(modelsContainer);
+        modelsScrollPane = new JScrollPane(modelsContainer);
+        JScrollPane scrollPane = modelsScrollPane;
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         
@@ -214,9 +217,9 @@ public class MultiChatWindow extends JFrame {
         String userMessage = text;
         inputArea.setText("");
 
-        // Send to all models concurrently
+        // Send to all models concurrently via executor
         for (ModelChatPanel panel : chatPanels.values()) {
-            executorService.submit(() -> panel.sendMessage(userMessage));
+            panel.sendMessageAsync(userMessage, executorService);
         }
 
         setInputEnabled(true);
@@ -280,6 +283,9 @@ public class MultiChatWindow extends JFrame {
             messageScroll.getViewport().setOpaque(false);
             messageScroll.setOpaque(false);
 
+            // Ensure mouse wheel over any part of this panel scrolls the message area
+            installWheelForwarding(this, messageScroll);
+
             add(messageScroll, BorderLayout.CENTER);
 
             // Show warning if API not configured
@@ -339,23 +345,23 @@ public class MultiChatWindow extends JFrame {
                     messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE));
         }
 
-        public void sendMessage(String userMessage) {
+        public void sendMessageAsync(String userMessage, ExecutorService executor) {
+            CompletableFuture.runAsync(() -> sendMessageInternal(userMessage), executor);
+        }
+
+        private void sendMessageInternal(String userMessage) {
             if (!isWindowActive || openAIService == null) {
                 return;
             }
 
             // Save user message to database (synchronized per session, not globally)
-            // Use computeIfAbsent to ensure lock exists
             Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
             synchronized (sessionLock) {
                 chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
             }
 
-            // Add user message to UI
             SwingUtilities.invokeLater(() -> {
                 if (!isWindowActive) return;
-                
-                // Read operations don't need synchronization as they're safe for concurrent reads
                 List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
                 if (!currentHistory.isEmpty()) {
                     ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
@@ -363,20 +369,15 @@ public class MultiChatWindow extends JFrame {
                     messagePanel.revalidate();
                     messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE);
                 }
-
-                // Create streaming bubble
                 createStreamingAssistantBubble();
             });
 
-            // Prepare API messages
-            // Read operations don't need synchronization as they're safe for concurrent reads
             List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
             List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
             for (ChatMessage msg : currentHistory) {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
             }
 
-            // Call API with streaming
             StringBuilder fullResponse = new StringBuilder();
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
                 @Override
@@ -396,8 +397,6 @@ public class MultiChatWindow extends JFrame {
                     if (!isWindowActive) return;
 
                     String assistantResponse = fullResponse.toString();
-                    // Synchronized database write (per session, not globally)
-                    // Use computeIfAbsent to ensure lock exists
                     Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
                     synchronized (sessionLock) {
                         chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
@@ -405,8 +404,6 @@ public class MultiChatWindow extends JFrame {
 
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
-
-                        // Remove streaming bubble and reload messages
                         if (currentAssistantMessage != null) {
                             Container parent = currentAssistantMessage.getParent();
                             if (parent != null) {
@@ -427,7 +424,6 @@ public class MultiChatWindow extends JFrame {
 
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
-
                         if (currentAssistantMessage != null) {
                             renderMarkdown(currentAssistantMessage,
                                     fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
@@ -458,6 +454,9 @@ public class MultiChatWindow extends JFrame {
             applyBubbleWidth(bubble, textPane);
             bubble.add(textPane, BorderLayout.CENTER);
 
+            // Ensure wheel events on new bubble are forwarded
+            installWheelForwarding(bubble, messageScroll);
+
             if (isUser) {
                 line.add(Box.createHorizontalGlue());
                 line.add(bubble);
@@ -486,6 +485,9 @@ public class MultiChatWindow extends JFrame {
             currentAssistantMessage = createMarkdownPane("正在思考...");
             applyBubbleWidth(bubble, currentAssistantMessage);
             bubble.add(currentAssistantMessage, BorderLayout.CENTER);
+
+            // Ensure wheel events on new bubble are forwarded
+            installWheelForwarding(bubble, messageScroll);
 
             line.add(bubble);
             line.add(Box.createHorizontalGlue());
@@ -555,6 +557,37 @@ public class MultiChatWindow extends JFrame {
             }
 
             bubble.revalidate();
+        }
+    }
+
+    private void installWheelForwarding(Component comp, JScrollPane target) {
+        if (comp == null || target == null) return;
+
+        MouseWheelListener forwarder = e -> {
+            if (!target.isWheelScrollingEnabled()) return;
+            // Create a new MouseWheelEvent with converted coordinates to avoid ClassCastException
+            Point p = SwingUtilities.convertPoint(comp, e.getPoint(), target);
+            MouseWheelEvent newEvent = new MouseWheelEvent(
+                    target,
+                    e.getID(),
+                    e.getWhen(),
+                    e.getModifiersEx(),
+                    p.x,
+                    p.y,
+                    e.getClickCount(),
+                    e.isPopupTrigger(),
+                    e.getScrollType(),
+                    e.getScrollAmount(),
+                    e.getWheelRotation()
+            );
+            target.dispatchEvent(newEvent);
+        };
+        comp.addMouseWheelListener(forwarder);
+
+        if (comp instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                installWheelForwarding(child, target);
+            }
         }
     }
 }
