@@ -2,14 +2,16 @@ package gui.card;
 
 import core.entity.Model;
 import core.util.ModelDAO;
+import core.util.ChatDAO;
 import gui.dialog.EditModelDialog;
 import gui.dialog.ExportModelDialog;
+import gui.window.ChatWindow;
 
 import javax.swing.*;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import javax.swing.border.LineBorder;
 
 public class ModelCard extends JPanel {
 
@@ -17,11 +19,28 @@ public class ModelCard extends JPanel {
     private final Model model;
     private final ModelDAO modelDAO;
     private final Frame parent;
+    private final ChatDAO chatDAO;
+    private final Runnable refreshCallback;
 
     public ModelCard(Frame parent, Model model, ModelDAO modelDAO) {
+        this(parent, model, modelDAO, null, null);
+    }
+
+    public ModelCard(Frame parent, Model model, ModelDAO modelDAO, ChatDAO chatDAO) {
+        this(parent, model, modelDAO, chatDAO, null);
+    }
+
+    public ModelCard(Frame parent,
+                     Model model,
+                     ModelDAO modelDAO,
+                     ChatDAO chatDAO,
+                     Runnable refreshCallback) {
+
         this.parent = parent;
         this.model = model;
         this.modelDAO = modelDAO;
+        this.chatDAO = chatDAO;
+        this.refreshCallback = refreshCallback;
 
         setLayout(new BorderLayout());
         setOpaque(false);
@@ -29,29 +48,34 @@ public class ModelCard extends JPanel {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
-        content = new JPanel();
-        content.setLayout(new BorderLayout(0, 10));
-        content.putClientProperty("FlatLaf.style", """
-            arc: 18;
-            background: darken(@background, 3%);
-        """);
-        setCardBorder(new Color(0x3c3f41));
+        content = new JPanel(new BorderLayout(0, 10));
+        content.putClientProperty("FlatLaf.style",
+                "arc:16;" +
+                        "background:darken($Panel.background,3%)");
+
+        setCardBorder(UIManager.getColor("Component.borderColor"));
+
+        // ================= Header =================
 
         JPanel header = new JPanel(new BorderLayout(10, 0));
         header.setOpaque(false);
 
         JLabel icon = new JLabel(UIManager.getIcon("FileView.computerIcon"));
-        icon.putClientProperty("FlatLaf.style", "foreground: #4c88ff;");
+        icon.setForeground(UIManager.getColor("Component.accentColor"));
 
         JPanel titleBox = new JPanel();
         titleBox.setOpaque(false);
         titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
 
-        JLabel title = new JLabel(model.getNickname().isEmpty() ? model.getModelName() : model.getNickname());
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
+        JLabel title = new JLabel(
+                model.getNickname().isEmpty()
+                        ? model.getModelName()
+                        : model.getNickname());
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
 
         JLabel subtitle = new JLabel(model.getModelName());
-        subtitle.setForeground(UIManager.getColor("Component.infoForeground"));
+        subtitle.setForeground(
+                UIManager.getColor("Label.disabledForeground"));
         subtitle.setFont(subtitle.getFont().deriveFont(13f));
 
         titleBox.add(title);
@@ -60,11 +84,18 @@ public class ModelCard extends JPanel {
         header.add(icon, BorderLayout.WEST);
         header.add(titleBox, BorderLayout.CENTER);
 
+        // ================= Body =================
+
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
-        JLabel description = new JLabel("Base URL: " + model.getBaseUrl());
-        description.setForeground(UIManager.getColor("Component.infoForeground"));
-        description.setFont(description.getFont().deriveFont(13f));
+
+        JLabel description =
+                new JLabel("Base URL: " + model.getBaseUrl());
+        description.setForeground(
+                UIManager.getColor("Label.disabledForeground"));
+        description.setFont(
+                description.getFont().deriveFont(13f));
+
         body.add(description, BorderLayout.CENTER);
 
         content.add(header, BorderLayout.NORTH);
@@ -76,111 +107,102 @@ public class ModelCard extends JPanel {
         addRightClickMenu();
     }
 
+    // ================= Hover & Click =================
+
     private void addHoverEffect() {
-        MouseAdapter hoverAdapter = new MouseAdapter() {
+        MouseAdapter hover = new MouseAdapter() {
+
             @Override
             public void mouseEntered(MouseEvent e) {
-                content.putClientProperty("FlatLaf.style", """
-                    arc: 18;
-                    background: darken(@background, 6%);
-                """);
-                setCardBorder(new Color(0x505458));
-                content.revalidate();
+                content.putClientProperty("FlatLaf.style",
+                        "arc:16;" +
+                                "background:darken($Panel.background,6%)");
+                setCardBorder(
+                        UIManager.getColor("Component.focusColor"));
                 content.repaint();
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-            content.putClientProperty("FlatLaf.style", """
-                arc: 18;
-                background: darken(@background, 3%);
-            """);
-            setCardBorder(new Color(0x3c3f41));
-            content.revalidate();
-            content.repaint();
+                content.putClientProperty("FlatLaf.style",
+                        "arc:16;" +
+                                "background:darken($Panel.background,3%)");
+                setCardBorder(
+                        UIManager.getColor("Component.borderColor"));
+                content.repaint();
             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                // TODO: 打开模型逻辑
-                JOptionPane.showMessageDialog(
-                        ModelCard.this,
-                        "打开模型：" + model.getModelName()
-                );
+                if (chatDAO != null) {
+                    new ChatWindow(model, chatDAO).setVisible(true);
+                }
             }
         };
 
-        addMouseListener(hoverAdapter);
-        content.addMouseListener(hoverAdapter);
+        addMouseListener(hover);
+        content.addMouseListener(hover);
     }
 
+    // ================= 右键菜单 =================
+
     private void addRightClickMenu() {
-        JPopupMenu popupMenu = new JPopupMenu();
+        JPopupMenu popup = new JPopupMenu();
 
-        JMenuItem editItem = new JMenuItem("编辑", new ImageIcon(ModelCard.class.getResource("/images/edit.png")));
-        JMenuItem deleteItem = new JMenuItem("删除", new ImageIcon(ModelCard.class.getResource("/images/delete.png")));
-        JMenuItem exportItem = new JMenuItem("导出", new ImageIcon(ModelCard.class.getResource("/images/export.png")));
+        JMenuItem edit = new JMenuItem("编辑");
+        JMenuItem delete = new JMenuItem("删除");
+        JMenuItem export = new JMenuItem("导出");
 
-        JMenuItem[] items = { editItem, deleteItem, exportItem };
-        for (JMenuItem item : items) {
-            item.setHorizontalAlignment(SwingConstants.CENTER);
-            item.setBorder(BorderFactory.createEmptyBorder(4, 16, 4, 16));
-
-            popupMenu.add(item);
+        for (JMenuItem item : new JMenuItem[]{edit, delete, export}) {
+            item.setBorder(
+                    BorderFactory.createEmptyBorder(6, 16, 6, 16));
+            popup.add(item);
         }
 
-        // 绑定功能
-        editItem.addActionListener(e -> {
-            EditModelDialog dialog = new EditModelDialog(parent, modelDAO, model);
+        edit.addActionListener(e -> {
+            EditModelDialog dialog =
+                    new EditModelDialog(parent, modelDAO, model);
             dialog.setVisible(true);
         });
 
-        deleteItem.addActionListener(e -> {
+        delete.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
                     parent,
-                    "确认删除模型 " + model.getModelName() + " 吗？",
+                    "确认删除模型 " + model.getModelName()
+                            + " 吗？\n这将清空该模型的所有聊天记录且无法恢复，该操作不可撤销。",
                     "删除确认",
                     JOptionPane.YES_NO_OPTION
             );
-            if(confirm == JOptionPane.YES_OPTION) {
+            if (confirm == JOptionPane.YES_OPTION) {
                 modelDAO.deleteModel(model.getUuid());
-                Container parentContainer = ModelCard.this.getParent();
-                if(parentContainer != null) {
-                    Component[] comps = parentContainer.getComponents();
-                    int idx = -1;
-                    for (int i = 0; i < comps.length; i++) {
-                        if (comps[i] == ModelCard.this) { idx = i; break; }
-                    }
-                    parentContainer.remove(ModelCard.this);
-                    if (idx >= 0 && idx < parentContainer.getComponentCount()) {
-                        Component maybeStrut = parentContainer.getComponent(idx);
-                        if (maybeStrut instanceof Box.Filler) {
-                            parentContainer.remove(maybeStrut);
-                        }
-                    }
-                    parentContainer.revalidate();
-                    parentContainer.repaint();
-                 }
-             }
-         });
+                if (refreshCallback != null) refreshCallback.run();
+            }
+        });
 
-        exportItem.addActionListener(e -> {
-            ExportModelDialog dialog = new ExportModelDialog(parent, modelDAO, model);
+        export.addActionListener(e -> {
+            ExportModelDialog dialog =
+                    new ExportModelDialog(parent, modelDAO, model);
             dialog.setVisible(true);
         });
 
         content.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) { if (e.isPopupTrigger()) popupMenu.show(e.getComponent(), e.getX(), e.getY()); }
-            @Override
-            public void mouseReleased(MouseEvent e) { if (e.isPopupTrigger()) popupMenu.show(e.getComponent(), e.getX(), e.getY()); }
+            @Override public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger())
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+            }
+            @Override public void mouseReleased(MouseEvent e) {
+                if (e.isPopupTrigger())
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+            }
         });
     }
 
-    private void setCardBorder(Color lineColor) {
+    // ================= Border =================
+
+    private void setCardBorder(Color color) {
         content.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(lineColor, 1, true),
-                BorderFactory.createEmptyBorder(16, 18, 16, 18)
+                new LineBorder(color, 1, true),
+                BorderFactory.createEmptyBorder(14, 16, 14, 16)
         ));
     }
 }

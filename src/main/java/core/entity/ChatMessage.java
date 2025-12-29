@@ -3,7 +3,7 @@ package core.entity;
 public class ChatMessage {
     private String uuid;
     private String role;
-    private String content; // JSON
+    private String content;
     private long timestamp;
 
     public ChatMessage(String uuid, String role, String content, long timestamp) {
