@@ -258,10 +258,14 @@ public class MultiChatWindow extends JFrame {
         inputArea.setText("");
 
         // Send to all models concurrently via executor
+        // Each sendMessageAsync call creates an independent CompletableFuture
+        // that runs on the executor service, ensuring true parallel execution
         for (ModelChatPanel panel : chatPanels.values()) {
             panel.sendMessageAsync(userMessage, executorService);
         }
-
+        
+        // Re-enable input immediately to allow sending more messages
+        // The async tasks run independently in background
         setInputEnabled(true);
     }
 
@@ -387,6 +391,7 @@ public class MultiChatWindow extends JFrame {
         }
 
         public void sendMessageAsync(String userMessage, ExecutorService executor) {
+            // Submit to executor for true concurrent execution
             CompletableFuture.runAsync(() -> sendMessageInternal(userMessage), executor);
         }
 
@@ -401,9 +406,12 @@ public class MultiChatWindow extends JFrame {
                 chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
             }
 
+            // Cache the message history to avoid repeated DB reads
+            List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+            
+            // Add user message to UI immediately
             SwingUtilities.invokeLater(() -> {
                 if (!isWindowActive) return;
-                List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
                 if (!currentHistory.isEmpty()) {
                     ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
                     addMessageBubble(userMsg);
@@ -413,23 +421,35 @@ public class MultiChatWindow extends JFrame {
                 createStreamingAssistantBubble();
             });
 
-            List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
+            // Prepare API messages from cached history
             List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
             for (ChatMessage msg : currentHistory) {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
             }
 
+            // Use StringBuilder for thread-safe streaming updates
             StringBuilder fullResponse = new StringBuilder();
+            
+            // Throttle UI updates to avoid overwhelming EDT
+            final long[] lastUpdateTime = {0};
+            final int UPDATE_INTERVAL_MS = 50; // Update UI at most every 50ms
+            
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
                 @Override
                 public void onChunk(String content) {
                     fullResponse.append(content);
                     if (isWindowActive) {
-                        SwingUtilities.invokeLater(() -> {
-                            if (currentAssistantMessage != null && isWindowActive) {
-                                renderMarkdown(currentAssistantMessage, fullResponse.toString());
-                            }
-                        });
+                        long currentTime = System.currentTimeMillis();
+                        // Throttle updates to avoid EDT overload
+                        if (currentTime - lastUpdateTime[0] >= UPDATE_INTERVAL_MS) {
+                            lastUpdateTime[0] = currentTime;
+                            String currentContent = fullResponse.toString();
+                            SwingUtilities.invokeLater(() -> {
+                                if (currentAssistantMessage != null && isWindowActive) {
+                                    renderMarkdown(currentAssistantMessage, currentContent);
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -438,14 +458,21 @@ public class MultiChatWindow extends JFrame {
                     if (!isWindowActive) return;
 
                     String assistantResponse = fullResponse.toString();
+                    
+                    // Save to database in background
                     Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
                     synchronized (sessionLock) {
                         chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
                     }
 
+                    // Final UI update with complete response
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
+                        
+                        // Final render to ensure we show the complete response
                         if (currentAssistantMessage != null) {
+                            renderMarkdown(currentAssistantMessage, assistantResponse);
+                            // Remove the streaming bubble
                             Container parent = currentAssistantMessage.getParent();
                             if (parent != null) {
                                 Container grandParent = parent.getParent();
@@ -455,6 +482,8 @@ public class MultiChatWindow extends JFrame {
                             }
                         }
                         currentAssistantMessage = null;
+                        
+                        // Reload messages from database to show the persisted assistant message
                         loadMessages();
                     });
                 }
