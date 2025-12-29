@@ -62,7 +62,7 @@ public class MultiChatWindow extends JFrame {
     private final Parser mdParser;
     private final HtmlRenderer mdRenderer;
 
-    private final JTextArea inputArea = new JTextArea(3, 40);
+    private final JTextArea inputArea = new JTextArea(5, 40);
     private JButton btnSend;
     private JPanel modelsContainer;
     private JScrollPane modelsScrollPane;
@@ -191,6 +191,16 @@ public class MultiChatWindow extends JFrame {
                 "background:$EditorPane.background;" +
                         "border:0,0,0,0;" +
                         "font:+1");
+        
+        // Bind Enter to send message, Shift+Enter for new line
+        inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "none");
+        inputArea.getInputMap().put(KeyStroke.getKeyStroke("shift ENTER"), "insert-break");
+        inputArea.getActionMap().put("none", new AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                onSendToAll();
+            }
+        });
 
         JScrollPane inputScroll = new JScrollPane(inputArea);
         inputScroll.setBorder(BorderFactory.createEmptyBorder());

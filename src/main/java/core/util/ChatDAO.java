@@ -24,6 +24,7 @@ public class ChatDAO {
                     model_uuid TEXT NOT NULL,
                     title TEXT,
                     created_at INTEGER NOT NULL,
+                    deleted INTEGER DEFAULT 0,
                     FOREIGN KEY(model_uuid) REFERENCES Model(uuid) ON DELETE CASCADE
                 )
             """);
@@ -34,9 +35,21 @@ public class ChatDAO {
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     timestamp INTEGER NOT NULL,
+                    deleted INTEGER DEFAULT 0,
                     FOREIGN KEY(session_uuid) REFERENCES ChatSession(session_uuid) ON DELETE CASCADE
                 )
             """);
+            // Add deleted column to existing tables if they don't have it
+            try {
+                stmt.executeUpdate("ALTER TABLE ChatSession ADD COLUMN deleted INTEGER DEFAULT 0");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+            try {
+                stmt.executeUpdate("ALTER TABLE ChatMessage ADD COLUMN deleted INTEGER DEFAULT 0");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -62,7 +75,7 @@ public class ChatDAO {
     public List<ChatSession> listSessions(String modelUuid) {
         List<ChatSession> list = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT session_uuid, model_uuid, title, created_at FROM ChatSession WHERE model_uuid = ? ORDER BY created_at DESC")) {
+                "SELECT session_uuid, model_uuid, title, created_at FROM ChatSession WHERE model_uuid = ? AND deleted = 0 ORDER BY created_at DESC")) {
             ps.setString(1, modelUuid);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -83,7 +96,7 @@ public class ChatDAO {
     public List<ChatMessage> listMessages(String sessionUuid) {
         List<ChatMessage> list = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT message_uuid, role, content, timestamp FROM ChatMessage WHERE session_uuid = ? ORDER BY timestamp")) {
+                "SELECT message_uuid, role, content, timestamp FROM ChatMessage WHERE session_uuid = ? AND deleted = 0 ORDER BY timestamp")) {
             ps.setString(1, sessionUuid);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -117,8 +130,17 @@ public class ChatDAO {
     }
 
     public void deleteSession(String sessionUuid) {
+        // Logical deletion - set deleted flag to 1
         try (PreparedStatement ps = conn.prepareStatement(
-                "DELETE FROM ChatSession WHERE session_uuid = ?")) {
+                "UPDATE ChatSession SET deleted = 1 WHERE session_uuid = ?")) {
+            ps.setString(1, sessionUuid);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // Also logically delete all messages in this session
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE ChatMessage SET deleted = 1 WHERE session_uuid = ?")) {
             ps.setString(1, sessionUuid);
             ps.executeUpdate();
         } catch (SQLException e) {
