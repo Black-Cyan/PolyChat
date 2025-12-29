@@ -134,7 +134,8 @@ public class ModelCard extends JPanel {
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (chatDAO != null) {
+                // 只有左键点击才打开聊天窗口
+                if (chatDAO != null && e.getButton() == MouseEvent.BUTTON1) {
                     new ChatWindow(model, chatDAO).setVisible(true);
                 }
             }
