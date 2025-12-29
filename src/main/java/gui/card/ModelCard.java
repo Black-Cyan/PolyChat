@@ -3,6 +3,7 @@ package gui.card;
 import core.entity.Model;
 import core.util.ModelDAO;
 import core.util.ChatDAO;
+import core.util.WindowManager;
 import gui.dialog.EditModelDialog;
 import gui.dialog.ExportModelDialog;
 import gui.window.ChatWindow;
@@ -44,13 +45,13 @@ public class ModelCard extends JPanel {
 
         setLayout(new BorderLayout());
         setOpaque(false);
-        setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+        setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
 
-        content = new JPanel(new BorderLayout(0, 10));
+        content = new JPanel(new BorderLayout(0, 12));
         content.putClientProperty("FlatLaf.style",
-                "arc:16;" +
+                "arc:12;" +
                         "background:darken($Panel.background,3%)");
 
         setCardBorder(UIManager.getColor("Component.borderColor"));
@@ -115,7 +116,7 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseEntered(MouseEvent e) {
                 content.putClientProperty("FlatLaf.style",
-                        "arc:16;" +
+                        "arc:12;" +
                                 "background:darken($Panel.background,6%)");
                 setCardBorder(
                         UIManager.getColor("Component.focusColor"));
@@ -125,7 +126,7 @@ public class ModelCard extends JPanel {
             @Override
             public void mouseExited(MouseEvent e) {
                 content.putClientProperty("FlatLaf.style",
-                        "arc:16;" +
+                        "arc:12;" +
                                 "background:darken($Panel.background,3%)");
                 setCardBorder(
                         UIManager.getColor("Component.borderColor"));
@@ -134,8 +135,15 @@ public class ModelCard extends JPanel {
 
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (chatDAO != null) {
-                    new ChatWindow(model, chatDAO).setVisible(true);
+                if (e.getButton() != MouseEvent.BUTTON1) return;
+                if (chatDAO != null && modelDAO != null) {
+                    WindowManager wm = WindowManager.getInstance();
+                    if (wm.hasWindow(model.getUuid())) {
+                        wm.focusWindow(model.getUuid());
+                    } else {
+                        ChatWindow chatWindow = new ChatWindow(model, chatDAO, modelDAO);
+                        chatWindow.setVisible(true);
+                    }
                 }
             }
         };
@@ -163,6 +171,9 @@ public class ModelCard extends JPanel {
             EditModelDialog dialog =
                     new EditModelDialog(parent, modelDAO, model);
             dialog.setVisible(true);
+            if (dialog.isChangesMade() && refreshCallback != null) {
+                refreshCallback.run();
+            }
         });
 
         delete.addActionListener(e -> {
@@ -202,7 +213,7 @@ public class ModelCard extends JPanel {
     private void setCardBorder(Color color) {
         content.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(color, 1, true),
-                BorderFactory.createEmptyBorder(14, 16, 14, 16)
+                BorderFactory.createEmptyBorder(16, 18, 16, 18)
         ));
     }
 }

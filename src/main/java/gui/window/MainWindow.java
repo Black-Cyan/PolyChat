@@ -146,10 +146,12 @@ public class MainWindow extends JFrame {
     public static void main(String[] args) {
         FlatArcDarkIJTheme.setup();
 
-        UIManager.put("Component.arc", 12);
-        UIManager.put("Button.arc", 12);
-        UIManager.put("TextComponent.arc", 10);
-        UIManager.put("ScrollBar.width", 10);
+        UIManager.put("Component.arc", 10);
+        UIManager.put("Button.arc", 8);
+        UIManager.put("TextComponent.arc", 8);
+        UIManager.put("ScrollBar.width", 12);
+        UIManager.put("ScrollBar.thumbArc", 999);
+        UIManager.put("ScrollBar.thumbInsets", new Insets(2, 2, 2, 2));
 
         SwingUtilities.invokeLater(
                 () -> new MainWindow().setVisible(true));

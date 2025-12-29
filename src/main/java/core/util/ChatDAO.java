@@ -125,4 +125,15 @@ public class ChatDAO {
             e.printStackTrace();
         }
     }
+
+    public void updateSessionTitle(String sessionUuid, String title) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE ChatSession SET title = ? WHERE session_uuid = ?")) {
+            ps.setString(1, title);
+            ps.setString(2, sessionUuid);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

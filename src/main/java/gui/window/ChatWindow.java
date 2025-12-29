@@ -6,13 +6,31 @@ import core.entity.ChatMessage;
 import core.entity.ChatSession;
 import core.entity.Model;
 import core.util.ChatDAO;
+import core.util.WindowManager;
+import core.util.ModelDAO;
+import core.service.OpenAIService;
+
+import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.util.data.MutableDataSet;
+
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.View;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class ChatWindow extends JFrame {
 
@@ -21,14 +39,20 @@ public class ChatWindow extends JFrame {
     static {
         FlatArcDarkIJTheme.setup();
         UIManager.put("ScrollBar.showButtons", false);
-        UIManager.put("ScrollBar.width", 10);
-        UIManager.put("Component.arc", 8);
+        UIManager.put("ScrollBar.width", 12);
+        UIManager.put("ScrollBar.thumbArc", 999);
+        UIManager.put("ScrollBar.thumbInsets", new Insets(2, 2, 2, 2));
+        UIManager.put("Component.arc", 10);
         UIManager.put("Button.arc", 8);
         UIManager.put("TextComponent.arc", 8);
     }
 
     private final Model model;
     private final ChatDAO chatDAO;
+    private final ModelDAO modelDAO;
+    private OpenAIService openAIService;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private volatile boolean isWindowActive = true;
 
     private static final SimpleDateFormat TIME_FMT =
             new SimpleDateFormat("MM-dd HH:mm");
@@ -38,56 +62,130 @@ public class ChatWindow extends JFrame {
     private final JList<ChatSession> sessionList =
             new JList<>(sessionListModel);
 
+    private final Parser mdParser;
+    private final HtmlRenderer mdRenderer;
+
     private final JPanel messagePanel = new JPanel();
     private JScrollPane messageScroll;
     private final JTextArea inputArea = new JTextArea(3, 40);
+    private JButton btnSend;
 
     private ChatSession currentSession;
+    private JEditorPane currentAssistantMessage = null;
 
     // ===================== 构造函数 =====================
 
-    public ChatWindow(Model model, ChatDAO chatDAO) {
+    public ChatWindow(Model model, ChatDAO chatDAO, ModelDAO modelDAO) {
         this.model = model;
         this.chatDAO = chatDAO;
+        this.modelDAO = modelDAO;
+
+        MutableDataSet mdOptions = new MutableDataSet();
+        mdParser = Parser.builder(mdOptions).build();
+        mdRenderer = HtmlRenderer.builder(mdOptions).build();
+
+        // Get full model with API key
+        Model fullModel = modelDAO.getModel(model.getUuid());
+        if (fullModel != null && fullModel.getApiKey() != null) {
+            this.openAIService = new OpenAIService(
+                    fullModel.getBaseUrl(),
+                    fullModel.getApiKey(),
+                    fullModel.getModelName()
+            );
+        }
 
         setTitle("Chat - " +
                 (model.getNickname().isEmpty()
                         ? model.getModelName()
                         : model.getNickname()));
 
-        setSize(1000, 650);
+        setSize(1100, 700);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
         add(buildSessionPane(), BorderLayout.WEST);
         add(buildChatPane(), BorderLayout.CENTER);
+        
+        // Show warning banner if API is not configured
+        if (openAIService == null) {
+            JPanel warningPanel = getWarningPanel();
+            add(warningPanel, BorderLayout.NORTH);
+            
+            // Disable input area
+            inputArea.setEnabled(false);
+            if (btnSend != null) {
+                btnSend.setEnabled(false);
+            }
+        }
+
+        // keep bubble widths in sync with viewport size
+        messageScroll.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override public void componentResized(ComponentEvent e) {
+                updateBubbleWidths();
+            }
+        });
 
         loadSessions();
+
+        // Register this window with the WindowManager
+        WindowManager.getInstance().registerWindow(model.getUuid(), this);
+
+        // Unregister and cleanup when closing
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                isWindowActive = false;
+                WindowManager.getInstance().unregisterWindow(model.getUuid());
+                executorService.shutdown();
+                try {
+                    if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                        executorService.shutdownNow();
+                    }
+                } catch (InterruptedException ex) {
+                    executorService.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+    }
+
+    private static @NotNull JPanel getWarningPanel() {
+        JPanel warningPanel = new JPanel(new BorderLayout());
+        warningPanel.setBackground(new Color(255, 200, 0, 30));
+        warningPanel.setBorder(new CompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0,
+                        new Color(255, 200, 0)),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        JLabel warningLabel = new JLabel("API配置未完成，无法发送消息。请在编辑模型中配置API Key。");
+        warningLabel.setForeground(new Color(200, 150, 0));
+        warningPanel.add(warningLabel, BorderLayout.CENTER);
+        return warningPanel;
     }
 
     // ===================== 左侧会话栏 =====================
 
     private Component buildSessionPane() {
         JPanel left = new JPanel(new BorderLayout());
-        left.setPreferredSize(new Dimension(260, 0));
+        left.setPreferredSize(new Dimension(280, 0));
         left.setBorder(new CompoundBorder(
                 BorderFactory.createMatteBorder(
                         0, 0, 0, 1,
                         UIManager.getColor("Component.borderColor")),
-                new EmptyBorder(8, 8, 8, 8)
+                new EmptyBorder(12, 12, 12, 12)
         ));
         left.putClientProperty("FlatLaf.style",
-                "background:$Panel.background");
+                "background:darken($Panel.background,2%)");
 
-        JPanel actions = new JPanel(new GridLayout(1, 2, 6, 0));
+        JPanel actions = new JPanel(new GridLayout(1, 2, 8, 0));
         actions.setOpaque(false);
-        JButton btnNew = new JButton("新聊天");
+        JButton btnNew = new JButton("新建");
         btnNew.putClientProperty("JButton.buttonType", "default");
         btnNew.addActionListener(this::onNewSession);
 
-        JButton btnDelete = new JButton("删除会话");
-        btnDelete.putClientProperty("JButton.buttonType", "toolBar");
+        JButton btnDelete = new JButton("删除");
+        btnDelete.putClientProperty("JButton.buttonType", "borderless");
         btnDelete.addActionListener(e -> onDeleteSession());
 
         actions.add(btnNew);
@@ -97,7 +195,7 @@ public class ChatWindow extends JFrame {
         sessionList.setCellRenderer(new SessionRenderer());
         sessionList.setSelectionMode(
                 ListSelectionModel.SINGLE_SELECTION);
-        sessionList.setFixedCellHeight(44);
+        sessionList.setFixedCellHeight(50);
         sessionList.setOpaque(false);
         sessionList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
@@ -127,11 +225,12 @@ public class ChatWindow extends JFrame {
         messagePanel.setLayout(
                 new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
         messagePanel.setBorder(
-                new EmptyBorder(12, 12, 12, 12));
+                new EmptyBorder(16, 16, 16, 16));
         messagePanel.putClientProperty("FlatLaf.style",
                 "background:$EditorPane.background");
 
         messageScroll = new JScrollPane(messagePanel);
+        messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         messageScroll.setBorder(BorderFactory.createEmptyBorder());
         messageScroll.getVerticalScrollBar().setUnitIncrement(18);
         messageScroll.getViewport().setOpaque(false);
@@ -222,7 +321,7 @@ public class ChatWindow extends JFrame {
                 new JScrollPane(inputArea);
         inputScroll.setBorder(BorderFactory.createEmptyBorder());
 
-        JButton btnSend = new JButton("Send");
+        btnSend = new JButton("Send");
         btnSend.putClientProperty(
                 "JButton.buttonType", "default");
         btnSend.addActionListener(this::onSend);
@@ -280,40 +379,24 @@ public class ChatWindow extends JFrame {
     }
 
     private void addMessageBubble(ChatMessage msg) {
-        boolean isUser =
-                "user".equalsIgnoreCase(msg.getRole());
+        boolean isUser = "user".equalsIgnoreCase(msg.getRole());
 
         JPanel line = new JPanel();
-        line.setLayout(
-                new BoxLayout(line, BoxLayout.X_AXIS));
+        line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
         line.setOpaque(false);
 
         JPanel bubble = new JPanel(new BorderLayout());
         bubble.setBackground(isUser
-                ? UIManager.getColor(
-                "Button.default.background")
-                : UIManager.getColor(
-                "EditorPane.background"));
+                ? UIManager.getColor("Button.default.background")
+                : UIManager.getColor("Panel.background"));
         bubble.setBorder(new CompoundBorder(
-                new LineBorder(
-                        UIManager.getColor(
-                                "Component.borderColor"),
-                        1, true),
-                new EmptyBorder(8, 12, 8, 12)
+                new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                new EmptyBorder(6, 10, 6, 10)
         ));
-        bubble.setMaximumSize(
-                new Dimension(720, Integer.MAX_VALUE));
 
-        JTextArea text =
-                new JTextArea(msg.getContent());
-        text.setEditable(false);
-        text.setLineWrap(true);
-        text.setWrapStyleWord(true);
-        text.setOpaque(false);
-        text.setBorder(null);
-        text.setFont(text.getFont().deriveFont(14f));
-
-        bubble.add(text, BorderLayout.CENTER);
+        JEditorPane textPane = createMarkdownPane(msg.getContent());
+        applyBubbleWidth(bubble, textPane);
+        bubble.add(textPane, BorderLayout.CENTER);
 
         if (isUser) {
             line.add(Box.createHorizontalGlue());
@@ -323,11 +406,158 @@ public class ChatWindow extends JFrame {
             line.add(Box.createHorizontalGlue());
         }
 
-        line.setBorder(
-                new EmptyBorder(4, 4, 4, 4));
+        line.setBorder(new EmptyBorder(6, 6, 6, 6));
         messagePanel.add(line);
-        messagePanel.add(
-                Box.createVerticalStrut(4));
+        messagePanel.add(Box.createVerticalStrut(6));
+    }
+
+    private JEditorPane createMarkdownPane(String content) {
+        JEditorPane pane = new JEditorPane();
+        pane.setContentType("text/html");
+        pane.setEditable(false);
+        pane.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
+        pane.setOpaque(false);
+        pane.setBorder(new EmptyBorder(0, 0, 0, 0));
+        renderMarkdown(pane, content);
+        return pane;
+    }
+
+    private void renderMarkdown(JEditorPane pane, String content) {
+        String safe = content == null ? "" : content;
+        String html = mdRenderer.render(mdParser.parse(safe));
+        
+        // Get font family with fallback
+        Font labelFont = UIManager.getFont("Label.font");
+        String fontFamily = labelFont != null ? labelFont.getFamily() : "SansSerif";
+        
+        String body = "<html><head><style>" +
+                "body{margin:0;padding:0;font-family:" + fontFamily + ";overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;}" +
+                "p{margin:0 0 4px 0;}" +
+                "ul,ol{margin:0 0 4px 18px;}" +
+                "pre{margin:4px 0;padding:6px;background:" + toRgb(UIManager.getColor("Panel.background")) + ";border-radius:6px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;}" +
+                "code{font-family:monospace;}" +
+                "</style></head><body>" + html + "</body></html>";
+        pane.setText(body);
+        pane.setCaretPosition(0);
+    }
+
+    private static String toRgb(Color c) {
+        if (c == null) return "#f0f0f0";
+        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
+    }
+
+    private int getBubbleMaxWidth() {
+        if (messageScroll != null && messageScroll.getViewport() != null) {
+            int vw = messageScroll.getViewport().getWidth();
+            if (vw > 0) {
+                return Math.max(220, vw - 60);
+            }
+        }
+        return 800;
+    }
+
+    private void createStreamingAssistantBubble() {
+        JPanel line = new JPanel();
+        line.setLayout(new BoxLayout(line, BoxLayout.X_AXIS));
+        line.setOpaque(false);
+
+        JPanel bubble = new JPanel(new BorderLayout());
+        bubble.setBackground(UIManager.getColor("Panel.background"));
+        bubble.setBorder(new CompoundBorder(
+                new LineBorder(UIManager.getColor("Component.borderColor"), 1, true),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
+
+        currentAssistantMessage = createMarkdownPane("正在思考...");
+        applyBubbleWidth(bubble, currentAssistantMessage);
+        bubble.add(currentAssistantMessage, BorderLayout.CENTER);
+
+        line.add(bubble);
+        line.add(Box.createHorizontalGlue());
+
+        line.setBorder(new EmptyBorder(6, 6, 6, 6));
+        messagePanel.add(line);
+        messagePanel.add(Box.createVerticalStrut(6));
+
+        messagePanel.revalidate();
+        SwingUtilities.invokeLater(() ->
+                messageScroll.getVerticalScrollBar()
+                        .setValue(Integer.MAX_VALUE));
+    }
+
+    private void updateBubbleWidths() {
+        int maxW = getBubbleMaxWidth();
+        for (Component comp : messagePanel.getComponents()) {
+            if (comp instanceof JPanel line) {
+                for (Component child : line.getComponents()) {
+                    if (child instanceof JPanel bubble) {
+                        Component center = ((BorderLayout) bubble.getLayout()).getLayoutComponent(BorderLayout.CENTER);
+                        if (center instanceof JEditorPane pane) {
+                            applyBubbleWidth(bubble, pane, maxW);
+                        }
+                    }
+                }
+            }
+        }
+        messagePanel.revalidate();
+        messagePanel.repaint();
+    }
+
+    private void applyBubbleWidth(JPanel bubble, JEditorPane content) {
+        applyBubbleWidth(bubble, content, getBubbleMaxWidth());
+    }
+
+    private void applyBubbleWidth(JPanel bubble, JEditorPane content, int maxW) {
+        bubble.setMaximumSize(new Dimension(maxW, Integer.MAX_VALUE));
+        
+        // Calculate padding from bubble's actual border insets
+        Insets bubbleInsets = bubble.getBorder() != null ? bubble.getBorder().getBorderInsets(bubble) : new Insets(0, 0, 0, 0);
+        int horizontalPadding = bubbleInsets.left + bubbleInsets.right;
+        int contentW = Math.max(180, maxW - horizontalPadding);
+
+        content.setSize(new Dimension(contentW, Integer.MAX_VALUE));
+
+        // Use View to calculate precise height for the given width
+        View view = content.getUI().getRootView(content);
+        if (view != null) {
+            view.setSize(contentW, Integer.MAX_VALUE);
+            int prefH = (int) Math.ceil(view.getPreferredSpan(View.Y_AXIS));
+            content.setPreferredSize(new Dimension(contentW, prefH));
+        } else {
+            // Fallback if View is not ready
+            Dimension pref = content.getPreferredSize();
+            pref.width = contentW;
+            content.setPreferredSize(pref);
+        }
+
+        bubble.revalidate();
+    }
+
+    private void generateTitle(ChatSession session, String userMsg, String assistantMsg) {
+        if (openAIService == null) {
+            return; // Cannot generate title without API service
+        }
+        
+        executorService.submit(() -> {
+            try {
+                List<OpenAIService.ChatMessage> messages = new ArrayList<>();
+                messages.add(new OpenAIService.ChatMessage("system", "You are a helpful assistant. Generate a short, concise title (max 10 words) for the following conversation. Do not use quotes."));
+                messages.add(new OpenAIService.ChatMessage("user", "User: " + userMsg + "\nAssistant: " + assistantMsg));
+
+                String title = openAIService.chatCompletion(messages);
+                if (title != null && !title.isEmpty()) {
+                    title = title.trim().replace("\"", "");
+                    chatDAO.updateSessionTitle(session.getUuid(), title);
+                    session.setTitle(title);
+
+                    SwingUtilities.invokeLater(() -> {
+                        sessionList.repaint();
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void onSend(ActionEvent e) {
@@ -347,47 +577,206 @@ public class ChatWindow extends JFrame {
             }
         }
 
-        // TODO: 接 OpenAI
+        if (openAIService == null) {
+            JOptionPane.showMessageDialog(this,
+                    "API配置未完成，无法发送消息",
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Disable send button and clear input
+        setInputEnabled(false);
+        String userMessage = text;
         inputArea.setText("");
+
+        // Save user message to database first
+        chatDAO.addMessage(
+                currentSession.getUuid(),
+                "user",
+                userMessage,
+                System.currentTimeMillis()
+        );
+
+        // Load the persisted user message from database
+        List<ChatMessage> currentHistory = chatDAO.listMessages(currentSession.getUuid());
+        if (currentHistory == null || currentHistory.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "发送消息时发生错误，请重试。",
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE);
+            setInputEnabled(true);
+            return;
+        }
+        ChatMessage userMsg = currentHistory.get(currentHistory.size() - 1);
+        
+        // Add user message to UI using the database ID
+        addMessageBubble(userMsg);
+        messagePanel.revalidate();
+        SwingUtilities.invokeLater(() ->
+                messageScroll.getVerticalScrollBar()
+                        .setValue(Integer.MAX_VALUE));
+
+        // Prepare message history for API call
+        List<core.service.OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
+        for (ChatMessage msg : currentHistory) {
+            apiMessages.add(new core.service.OpenAIService.ChatMessage(
+                    msg.getRole(),
+                    msg.getContent()
+            ));
+        }
+
+        // Create assistant message bubble for streaming
+        createStreamingAssistantBubble();
+
+        // Call OpenAI API in background thread using executor
+        executorService.submit(() -> {
+            StringBuilder fullResponse = new StringBuilder();
+
+            openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
+                @Override
+                public void onChunk(String content) {
+                    fullResponse.append(content);
+                    if (isWindowActive) {
+                        SwingUtilities.invokeLater(() -> {
+                            if (currentAssistantMessage != null && isWindowActive) {
+                                renderMarkdown(currentAssistantMessage, fullResponse.toString());
+                            }
+                        });
+                    }
+                }
+
+                @Override
+                public void onComplete() {
+                    if (!isWindowActive) return;
+                    
+                    String assistantResponse = fullResponse.toString();
+
+                    // Save assistant message to database
+                    chatDAO.addMessage(
+                            currentSession.getUuid(),
+                            "assistant",
+                            assistantResponse,
+                            System.currentTimeMillis()
+                    );
+
+                    // Check if we need to generate title (first exchange)
+                    List<ChatMessage> msgs = chatDAO.listMessages(currentSession.getUuid());
+                    if (msgs.size() == 2) {
+                         generateTitle(currentSession, userMessage, assistantResponse);
+                    }
+
+                    SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+                        
+                        // Remove streaming bubble and reload all messages from database
+                        if (currentAssistantMessage != null) {
+                            Container parent = currentAssistantMessage.getParent();
+                            if (parent != null) {
+                                Container grandParent = parent.getParent();
+                                if (grandParent == messagePanel) {
+                                    messagePanel.remove(grandParent);
+                                }
+                            }
+                        }
+                        currentAssistantMessage = null;
+                        
+                        // Reload messages from database to show the persisted assistant message
+                        loadMessages();
+                        
+                        setInputEnabled(true);
+                        inputArea.requestFocus();
+                    });
+                }
+
+                @Override
+                public void onError(Exception ex) {
+                    if (!isWindowActive) return;
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        if (!isWindowActive) return;
+                        
+                        if (currentAssistantMessage != null) {
+                            renderMarkdown(currentAssistantMessage,
+                                    fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
+                        }
+                        currentAssistantMessage = null;
+                        
+                        setInputEnabled(true);
+                        JOptionPane.showMessageDialog(
+                                ChatWindow.this,
+                                "发送失败: " + ex.getMessage(),
+                                "错误",
+                                JOptionPane.ERROR_MESSAGE
+                        );
+                    });
+                }
+            });
+        });
+    }
+
+    private void setInputEnabled(boolean enabled) {
+        btnSend.setEnabled(enabled);
+        inputArea.setEnabled(enabled);
     }
 
     // ===================== Renderer =====================
 
-    private static class SessionRenderer
-            extends DefaultListCellRenderer {
+    private static class SessionRenderer extends JPanel implements ListCellRenderer<ChatSession> {
+        private final JLabel titleLabel = new JLabel();
+        private final JLabel timeLabel = new JLabel();
+
+        public SessionRenderer() {
+            super();
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+            setBorder(new EmptyBorder(8, 14, 8, 14));
+
+            titleLabel.setOpaque(false);
+            titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            timeLabel.setOpaque(false);
+            timeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            // Set font with fallback
+            Font baseFont = UIManager.getFont("Label.font");
+            if (baseFont == null) {
+                baseFont = timeLabel.getFont();
+            }
+            if (baseFont != null) {
+                timeLabel.setFont(baseFont.deriveFont(11.0f));
+            }
+
+            add(titleLabel);
+            add(Box.createVerticalStrut(4));
+            add(timeLabel);
+        }
+
         @Override
         public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
+                JList<? extends ChatSession> list,
+                ChatSession value,
                 int index,
                 boolean isSelected,
                 boolean cellHasFocus) {
 
-            JLabel base = (JLabel)
-                    super.getListCellRendererComponent(
-                            list, value, index,
-                            isSelected, cellHasFocus);
-
-            base.setBorder(
-                    new EmptyBorder(6, 12, 6, 12));
-            base.setOpaque(true);
-            base.setBackground(isSelected
-                    ? UIManager.getColor(
-                    "List.selectionBackground")
-                    : UIManager.getColor(
-                    "Panel.background"));
-
-            if (value instanceof ChatSession s) {
-                base.setText(
-                        (s.getTitle() == null ||
-                                s.getTitle().isEmpty()
-                                ? "New Chat"
-                                : s.getTitle())
-                                + "   "
-                                + TIME_FMT.format(
-                                s.getCreatedAt()));
+            if (isSelected) {
+                setBackground(UIManager.getColor("List.selectionBackground"));
+                titleLabel.setForeground(UIManager.getColor("List.selectionForeground"));
+                timeLabel.setForeground(UIManager.getColor("List.selectionForeground"));
+            } else {
+                setBackground(new Color(0, 0, 0, 0));
+                titleLabel.setForeground(UIManager.getColor("List.foreground"));
+                timeLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
             }
-            return base;
+
+            String title = (value.getTitle() == null || value.getTitle().isEmpty())
+                    ? "新对话"
+                    : value.getTitle();
+
+            titleLabel.setText(title);
+            timeLabel.setText(TIME_FMT.format(value.getCreatedAt()));
+
+            return this;
         }
     }
 }
