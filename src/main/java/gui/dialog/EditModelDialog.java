@@ -17,7 +17,7 @@ public class EditModelDialog extends JDialog {
     private final Model model;
 
     public EditModelDialog(Frame parent, ModelDAO modelDAO, Model model) {
-        super(parent, "编辑模型", true);
+        super(parent, "编辑模型", true); // 保持模态对话框
         this.modelDAO = modelDAO;
         this.model = model;
 
@@ -25,6 +25,20 @@ public class EditModelDialog extends JDialog {
         setLocationRelativeTo(parent);
         setResizable(false);
         setLayout(new BorderLayout(10, 10));
+        
+        // 设置对话框的窗口焦点监听器
+        addWindowFocusListener(new java.awt.event.WindowFocusListener() {
+            @Override
+            public void windowLostFocus(java.awt.event.WindowEvent e) {
+                // 当对话框失去焦点时关闭
+                dispose();
+            }
+            
+            @Override
+            public void windowGainedFocus(java.awt.event.WindowEvent e) {
+                // 对话框获得焦点时不处理
+            }
+        });
 
         // ==================== 主表单 ====================
         JPanel panel = new JPanel(new GridBagLayout());
