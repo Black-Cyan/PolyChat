@@ -571,9 +571,7 @@ public class ChatWindow extends JFrame {
                     chatDAO.updateSessionTitle(session.getUuid(), title);
                     session.setTitle(title);
 
-                    SwingUtilities.invokeLater(() -> {
-                        sessionList.repaint();
-                    });
+                    SwingUtilities.invokeLater(sessionList::repaint);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -650,90 +648,92 @@ public class ChatWindow extends JFrame {
         // Create assistant message bubble for streaming
         createStreamingAssistantBubble();
 
-        // Call OpenAI API in background thread using executor
-        executorService.submit(() -> {
-            StringBuilder fullResponse = new StringBuilder();
+        // Buffer for accumulating response
+        StringBuffer responseBuffer = new StringBuffer();
 
-            openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
-                @Override
-                public void onChunk(String content) {
-                    fullResponse.append(content);
-                    if (isWindowActive) {
-                        SwingUtilities.invokeLater(() -> {
-                            if (currentAssistantMessage != null && isWindowActive) {
-                                renderMarkdown(currentAssistantMessage, fullResponse.toString());
-                            }
-                        });
-                    }
-                }
-
-                @Override
-                public void onComplete() {
-                    if (!isWindowActive) return;
-                    
-                    String assistantResponse = fullResponse.toString();
-
-                    // Save assistant message to database
-                    chatDAO.addMessage(
-                            currentSession.getUuid(),
-                            "assistant",
-                            assistantResponse,
-                            System.currentTimeMillis()
-                    );
-
-                    // Check if we need to generate title (first exchange)
-                    List<ChatMessage> msgs = chatDAO.listMessages(currentSession.getUuid());
-                    if (msgs.size() == 2) {
-                         generateTitle(currentSession, userMessage, assistantResponse);
-                    }
-
-                    SwingUtilities.invokeLater(() -> {
-                        if (!isWindowActive) return;
-                        
-                        // Remove streaming bubble and reload all messages from database
-                        if (currentAssistantMessage != null) {
-                            Container parent = currentAssistantMessage.getParent();
-                            if (parent != null) {
-                                Container grandParent = parent.getParent();
-                                if (grandParent == messagePanel) {
-                                    messagePanel.remove(grandParent);
-                                }
-                            }
-                        }
-                        currentAssistantMessage = null;
-                        
-                        // Reload messages from database to show the persisted assistant message
-                        loadMessages();
-                        
-                        setInputEnabled(true);
-                        inputArea.requestFocus();
-                    });
-                }
-
-                @Override
-                public void onError(Exception ex) {
-                    if (!isWindowActive) return;
-                    
-                    SwingUtilities.invokeLater(() -> {
-                        if (!isWindowActive) return;
-                        
-                        if (currentAssistantMessage != null) {
-                            renderMarkdown(currentAssistantMessage,
-                                    fullResponse.toString() + "\n\n[Error: " + ex.getMessage() + "]");
-                        }
-                        currentAssistantMessage = null;
-                        
-                        setInputEnabled(true);
-                        JOptionPane.showMessageDialog(
-                                ChatWindow.this,
-                                "发送失败: " + ex.getMessage(),
-                                "错误",
-                                JOptionPane.ERROR_MESSAGE
-                        );
-                    });
-                }
-            });
+        // Timer to update UI periodically on EDT
+        Timer uiUpdateTimer = new Timer(100, evt -> {
+            if (currentAssistantMessage != null && isWindowActive) {
+                renderMarkdown(currentAssistantMessage, responseBuffer.toString());
+            }
         });
+        uiUpdateTimer.start();
+
+        // Call OpenAI API in background thread using executor
+        executorService.submit(() -> openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
+            @Override
+            public void onChunk(String content) {
+                responseBuffer.append(content);
+            }
+
+            @Override
+            public void onComplete() {
+                uiUpdateTimer.stop();
+                if (!isWindowActive) return;
+
+                String assistantResponse = responseBuffer.toString();
+
+                // Save assistant message to database
+                chatDAO.addMessage(
+                        currentSession.getUuid(),
+                        "assistant",
+                        assistantResponse,
+                        System.currentTimeMillis()
+                );
+
+                // Check if we need to generate title (first exchange)
+                List<ChatMessage> msgs = chatDAO.listMessages(currentSession.getUuid());
+                if (msgs.size() == 2) {
+                     generateTitle(currentSession, userMessage, assistantResponse);
+                }
+
+                SwingUtilities.invokeLater(() -> {
+                    if (!isWindowActive) return;
+
+                    // Remove streaming bubble and reload all messages from database
+                    if (currentAssistantMessage != null) {
+                        Container parent = currentAssistantMessage.getParent();
+                        if (parent != null) {
+                            Container grandParent = parent.getParent();
+                            if (grandParent == messagePanel) {
+                                messagePanel.remove(grandParent);
+                            }
+                        }
+                    }
+                    currentAssistantMessage = null;
+
+                    // Reload messages from database to show the persisted assistant message
+                    loadMessages();
+
+                    setInputEnabled(true);
+                    inputArea.requestFocus();
+                });
+            }
+
+            @Override
+            public void onError(Exception ex) {
+                uiUpdateTimer.stop();
+                if (!isWindowActive) return;
+
+                SwingUtilities.invokeLater(() -> {
+                    if (!isWindowActive) return;
+
+                    if (currentAssistantMessage != null) {
+                        renderMarkdown(currentAssistantMessage,
+                                responseBuffer.toString() + "\n\n[Error: " + ex.getMessage() + "]");
+                    }
+                    currentAssistantMessage = null;
+
+                    setInputEnabled(true);
+                    JOptionPane.showMessageDialog(
+                            ChatWindow.this,
+                            "发送失败: " + ex.getMessage(),
+                            "错误",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                });
+            }
+        }));
     }
 
     private void setInputEnabled(boolean enabled) {
