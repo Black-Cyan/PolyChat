@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Multi-chat window that allows sending messages to multiple models simultaneously.
@@ -296,6 +297,9 @@ public class MultiChatWindow extends JFrame {
         private final ChatSession session;
         private final JPanel messagePanel;
         private JScrollPane messageScroll;
+        // currentAssistantMessage is only accessed during a single message send operation
+        // Thread safety: Only one message is processed at a time per panel, and all UI
+        // updates go through SwingUtilities.invokeLater() which serializes on EDT
         private JEditorPane currentAssistantMessage = null;
 
         public ModelChatPanel(Model model, OpenAIService service, ChatSession session) {
@@ -427,11 +431,13 @@ public class MultiChatWindow extends JFrame {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
             }
 
-            // Use StringBuilder for thread-safe streaming updates
+            // StringBuilder for streaming updates (each streaming session has its own instance)
+            // This is safe because each model panel processes messages independently
             StringBuilder fullResponse = new StringBuilder();
             
             // Throttle UI updates to avoid overwhelming EDT
-            final long[] lastUpdateTime = {0};
+            // Use AtomicLong for thread-safe timestamp tracking
+            AtomicLong lastUpdateTime = new AtomicLong(0);
             final int UPDATE_INTERVAL_MS = 50; // Update UI at most every 50ms
             
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
@@ -440,9 +446,9 @@ public class MultiChatWindow extends JFrame {
                     fullResponse.append(content);
                     if (isWindowActive) {
                         long currentTime = System.currentTimeMillis();
-                        // Throttle updates to avoid EDT overload
-                        if (currentTime - lastUpdateTime[0] >= UPDATE_INTERVAL_MS) {
-                            lastUpdateTime[0] = currentTime;
+                        // Throttle updates to avoid EDT overload (thread-safe with AtomicLong)
+                        if (currentTime - lastUpdateTime.get() >= UPDATE_INTERVAL_MS) {
+                            lastUpdateTime.set(currentTime);
                             String currentContent = fullResponse.toString();
                             SwingUtilities.invokeLater(() -> {
                                 if (currentAssistantMessage != null && isWindowActive) {
