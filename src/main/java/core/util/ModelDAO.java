@@ -31,7 +31,8 @@ public class ModelDAO {
             try {
                 stmt.executeUpdate("ALTER TABLE Model ADD COLUMN deleted INTEGER DEFAULT 0");
             } catch (SQLException e) {
-                // Column already exists, ignore
+                // Column likely already exists, but log for debugging
+                System.err.println("Note: Could not add 'deleted' column to Model (may already exist): " + e.getMessage());
             }
         } catch (SQLException e) {
             e.printStackTrace();

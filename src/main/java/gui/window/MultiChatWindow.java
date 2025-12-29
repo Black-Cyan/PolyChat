@@ -112,9 +112,6 @@ public class MultiChatWindow extends JFrame {
             // Create or get session for this model
             ChatSession session = createOrGetSession(model);
             
-            // Create a lock for this session
-            sessionLocks.put(session.getUuid(), new Object());
-            
             ModelChatPanel panel = new ModelChatPanel(model, service, session);
             chatPanels.put(model.getUuid(), panel);
             modelsContainer.add(panel);
@@ -224,9 +221,9 @@ public class MultiChatWindow extends JFrame {
                         "font:+1");
         
         // Bind Enter to send message, Shift+Enter for new line
-        inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "none");
+        inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "send-message");
         inputArea.getInputMap().put(KeyStroke.getKeyStroke("shift ENTER"), "insert-break");
-        inputArea.getActionMap().put("none", new AbstractAction() {
+        inputArea.getActionMap().put("send-message", new AbstractAction() {
             @Override
             public void actionPerformed(java.awt.event.ActionEvent e) {
                 onSendToAll();
@@ -277,6 +274,14 @@ public class MultiChatWindow extends JFrame {
 
     private void cleanup() {
         isWindowActive = false;
+        
+        // Shutdown all OpenAIService instances to release HTTP client resources
+        for (ModelChatPanel panel : chatPanels.values()) {
+            if (panel.openAIService != null) {
+                panel.openAIService.shutdown();
+            }
+        }
+        
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -293,7 +298,8 @@ public class MultiChatWindow extends JFrame {
      */
     private class ModelChatPanel extends JPanel {
         private final Model model;
-        private final OpenAIService openAIService;
+        // Package-private to allow cleanup from outer class
+        final OpenAIService openAIService;
         private final ChatSession session;
         private final JPanel messagePanel;
         private JScrollPane messageScroll;
@@ -476,21 +482,11 @@ public class MultiChatWindow extends JFrame {
                         if (!isWindowActive) return;
                         
                         // Final render to ensure we show the complete response
+                        // The streaming bubble stays as the final message - no need to reload all messages
                         if (currentAssistantMessage != null) {
                             renderMarkdown(currentAssistantMessage, assistantResponse);
-                            // Remove the streaming bubble
-                            Container parent = currentAssistantMessage.getParent();
-                            if (parent != null) {
-                                Container grandParent = parent.getParent();
-                                if (grandParent == messagePanel) {
-                                    messagePanel.remove(grandParent);
-                                }
-                            }
                         }
                         currentAssistantMessage = null;
-                        
-                        // Reload messages from database to show the persisted assistant message
-                        loadMessages();
                     });
                 }
 

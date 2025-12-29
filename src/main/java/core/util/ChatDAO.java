@@ -43,12 +43,14 @@ public class ChatDAO {
             try {
                 stmt.executeUpdate("ALTER TABLE ChatSession ADD COLUMN deleted INTEGER DEFAULT 0");
             } catch (SQLException e) {
-                // Column already exists, ignore
+                // Column likely already exists, but log for debugging
+                System.err.println("Note: Could not add 'deleted' column to ChatSession (may already exist): " + e.getMessage());
             }
             try {
                 stmt.executeUpdate("ALTER TABLE ChatMessage ADD COLUMN deleted INTEGER DEFAULT 0");
             } catch (SQLException e) {
-                // Column already exists, ignore
+                // Column likely already exists, but log for debugging
+                System.err.println("Note: Could not add 'deleted' column to ChatMessage (may already exist): " + e.getMessage());
             }
         } catch (SQLException e) {
             e.printStackTrace();
