@@ -118,6 +118,35 @@ public class MultiChatWindow extends JFrame {
             chatPanels.put(model.getUuid(), panel);
             modelsContainer.add(panel);
         }
+        
+        // Install wheel forwarding from model panels to main scroll pane
+        // This allows scrolling the main container when mouse is over model panels
+        for (ModelChatPanel panel : chatPanels.values()) {
+            installWheelForwardingToMain(panel);
+        }
+    }
+    
+    /**
+     * Forwards mouse wheel events from model panels to the main scroll pane
+     * when the main scroll pane needs scrolling
+     */
+    private void installWheelForwardingToMain(Component comp) {
+        if (comp == null || modelsScrollPane == null) return;
+        
+        MouseWheelListener forwarder = e -> {
+            // Only forward to main scroll if it has something to scroll
+            JScrollBar hsb = modelsScrollPane.getHorizontalScrollBar();
+            JScrollBar vsb = modelsScrollPane.getVerticalScrollBar();
+            
+            boolean canScrollHorizontally = hsb.isVisible() && hsb.getMaximum() > hsb.getVisibleAmount();
+            boolean canScrollVertically = vsb.isVisible() && vsb.getMaximum() > vsb.getVisibleAmount();
+            
+            if (canScrollHorizontally || canScrollVertically) {
+                // Forward the event to main scroll pane
+                modelsScrollPane.dispatchEvent(SwingUtilities.convertMouseEvent(comp, e, modelsScrollPane));
+            }
+        };
+        comp.addMouseWheelListener(forwarder);
     }
 
     private ChatSession createOrGetSession(Model model) {
