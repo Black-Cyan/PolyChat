@@ -197,14 +197,49 @@ public class ModelCard extends JPanel {
         });
 
         delete.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(
-                    parent,
+            // 创建 JOptionPane
+            JOptionPane optionPane = new JOptionPane(
                     "确认删除模型 " + model.getModelName()
                             + " 吗？\n这将清空该模型的所有聊天记录且无法恢复，该操作不可撤销。",
-                    "删除确认",
+                    JOptionPane.QUESTION_MESSAGE,
                     JOptionPane.YES_NO_OPTION
             );
-            if (confirm == JOptionPane.YES_OPTION) {
+            
+            // 创建对话框
+            JDialog dialog = optionPane.createDialog(parent, "删除确认");
+            
+            // 为对话框添加组件监听器，确保在对话框完全显示后再添加键盘监听
+            dialog.addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentShown(java.awt.event.ComponentEvent e) {
+                    // 强制获取焦点
+                    dialog.requestFocus();
+                    
+                    // 添加键盘监听
+                    dialog.addKeyListener(new java.awt.event.KeyAdapter() {
+                        @Override
+                        public void keyPressed(java.awt.event.KeyEvent e) {
+                            char key = Character.toLowerCase(e.getKeyChar());
+                            if (key == 'y') {
+                                // 模拟点击YES按钮
+                                optionPane.setValue(JOptionPane.YES_OPTION);
+                                dialog.dispose();
+                            } else if (key == 'n') {
+                                // 模拟点击NO按钮
+                                optionPane.setValue(JOptionPane.NO_OPTION);
+                                dialog.dispose();
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // 显示对话框
+            dialog.setVisible(true);
+            
+            // 获取用户选择
+            Object value = optionPane.getValue();
+            if (value != null && value.equals(JOptionPane.YES_OPTION)) {
                 modelDAO.deleteModel(model.getUuid());
                 if (refreshCallback != null) refreshCallback.run();
             }

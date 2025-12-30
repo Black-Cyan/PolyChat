@@ -283,13 +283,49 @@ public class ChatWindow extends JFrame {
             JOptionPane.showMessageDialog(this, "请选择要删除的会话");
             return;
         }
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
+        
+        // 创建 JOptionPane
+        JOptionPane optionPane = new JOptionPane(
                 "确认删除当前会话并清空聊天记录？",
-                "删除会话",
+                JOptionPane.QUESTION_MESSAGE,
                 JOptionPane.YES_NO_OPTION
         );
-        if (confirm == JOptionPane.YES_OPTION) {
+        
+        // 创建对话框
+        JDialog dialog = optionPane.createDialog(this, "删除会话");
+        
+        // 为对话框添加组件监听器，确保在对话框完全显示后再添加键盘监听
+        dialog.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                // 强制获取焦点
+                dialog.requestFocus();
+                
+                // 添加键盘监听
+                dialog.addKeyListener(new java.awt.event.KeyAdapter() {
+                    @Override
+                    public void keyPressed(java.awt.event.KeyEvent e) {
+                        char key = Character.toLowerCase(e.getKeyChar());
+                        if (key == 'y') {
+                            // 模拟点击YES按钮
+                            optionPane.setValue(JOptionPane.YES_OPTION);
+                            dialog.dispose();
+                        } else if (key == 'n') {
+                            // 模拟点击NO按钮
+                            optionPane.setValue(JOptionPane.NO_OPTION);
+                            dialog.dispose();
+                        }
+                    }
+                });
+            }
+        });
+        
+        // 显示对话框
+        dialog.setVisible(true);
+        
+        // 获取用户选择
+        Object value = optionPane.getValue();
+        if (value != null && value.equals(JOptionPane.YES_OPTION)) {
             chatDAO.deleteSession(currentSession.getUuid());
             loadSessions(false);
             currentSession = null;
