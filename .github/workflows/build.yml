@@ -1,0 +1,66 @@
+name: Build PolyChat
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        jdk: [21]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # 安装完整 JDK
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+
+      - name: Verify Java
+        run: java -version
+
+      # 构建 ShadowJar
+      - name: Build ShadowJar
+        run: ./gradlew clean shadowJar
+
+      # 获取版本号
+      - name: Get project version
+        id: version
+        run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
+
+      # jlink 生成 runtime
+      - name: Create custom runtime
+        run: |
+          jlink \
+            --module-path $JAVA_HOME/jmods \
+            --add-modules java.base,java.desktop,java.sql \
+            --strip-debug \
+            --no-header-files \
+            --no-man-pages \
+            --compress=2 \
+            --output runtime
+
+      # jpackage 打可执行程序
+      - name: Package app
+        run: |
+          jpackage \
+            --name PolyChat \
+            --input build/libs \
+            --main-jar PolyChat-${{ env.VERSION }}-all.jar \
+            --runtime-image runtime \
+            --type app-image \
+            --dest dist
+
+      # 上传可执行文件
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: polychat-${{ matrix.os }}-${{ env.VERSION }}
+          path: dist/

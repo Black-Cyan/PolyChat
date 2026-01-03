@@ -1,20 +1,10 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'top.blackcyan'
 version = '1.0.0'
-
-sourceSets {
-    main {
-        java {
-            srcDirs = ['src/main/java']
-        }
-        resources {
-            srcDirs = ['src/main/resources']
-        }
-    }
-}
 
 java {
     toolchain {
@@ -24,7 +14,6 @@ java {
 
 repositories {
     maven { url 'https://maven.aliyun.com/repository/public/' }
-    maven { url 'https://maven.aliyun.com/repository/gradle-plugin/' }
     mavenCentral()
 }
 
@@ -37,6 +26,16 @@ dependencies {
     implementation 'com.vladsch.flexmark:flexmark-all:0.64.8'
 }
 
-test {
-    useJUnitPlatform()
+shadowJar {
+    manifest {
+        attributes(
+                'Main-Class': 'gui.window.MainWindow'
+        )
+    }
+}
+
+tasks.register('printVersion') {
+    doLast {
+        println project.version
+    }
 }
