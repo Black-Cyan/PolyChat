@@ -41,3 +41,11 @@ tasks.register('printVersion') {
         println project.version
     }
 }
+
+tasks.register('writeVersion') {
+    doLast {
+        def versionFile = file("${buildDir}/version.txt")
+        versionFile.parentFile.mkdirs()
+        versionFile.text = project.version
+    }
+}

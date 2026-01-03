@@ -26,7 +26,7 @@ jobs:
       - name: Verify Java
         run: java -version
 
-      # Make gradlew executable on Unix systems
+      # 在 Unix 系统上使 gradlew 可执行
       - name: Make gradlew executable
         if: runner.os != 'Windows'
         run: chmod +x gradlew
@@ -39,7 +39,13 @@ jobs:
 
       # 获取版本号
       - name: Get project version
-        run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
+        uses: gradle/gradle-build-action@v3
+        with:
+          arguments: writeVersion
+
+      - name: Set version environment variable
+        shell: bash
+        run: echo "VERSION=$(cat build/version.txt)" >> $GITHUB_ENV
 
       # jlink 生成 runtime (Unix)
       - name: Create custom runtime (Unix)
