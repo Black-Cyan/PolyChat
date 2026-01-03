@@ -126,23 +126,39 @@ public class MultiChatWindow extends JFrame {
     
     /**
      * Forwards mouse wheel events from model panels to the main scroll pane
-     * when the main scroll pane needs scrolling
+     * when the main scroll pane needs scrolling and the mouse is not over a chat message scroll area
      */
     private void installWheelForwardingToMain(Component comp) {
         if (comp == null || modelsScrollPane == null) return;
         
         MouseWheelListener forwarder = e -> {
-            // Only forward to main scroll if it has something to scroll
-            JScrollBar hsb = modelsScrollPane.getHorizontalScrollBar();
-            JScrollBar vsb = modelsScrollPane.getVerticalScrollBar();
+
+            Component source = e.getComponent();
+            boolean isOverChatScroll = false;
+
+            while (source != null && source != comp) {
+                if (source instanceof JScrollPane) {
+
+                    if (source.getParent() instanceof ModelChatPanel) {
+                        isOverChatScroll = true;
+                        break;
+                    }
+                }
+                source = source.getParent();
+            }
             
-            boolean canScrollHorizontally = hsb.isVisible() && hsb.getMaximum() > hsb.getVisibleAmount();
-            boolean canScrollVertically = vsb.isVisible() && vsb.getMaximum() > vsb.getVisibleAmount();
-            
-            if (canScrollHorizontally || canScrollVertically) {
-                // Forward the event to main scroll pane
-                modelsScrollPane.dispatchEvent(SwingUtilities.convertMouseEvent(comp, e, modelsScrollPane));
-                e.consume();
+       
+            if (!isOverChatScroll) {
+                JScrollBar hsb = modelsScrollPane.getHorizontalScrollBar();
+                JScrollBar vsb = modelsScrollPane.getVerticalScrollBar();
+                
+                boolean canScrollHorizontally = hsb.isVisible() && hsb.getMaximum() > hsb.getVisibleAmount();
+                boolean canScrollVertically = vsb.isVisible() && vsb.getMaximum() > vsb.getVisibleAmount();
+                
+                if (canScrollHorizontally || canScrollVertically) {
+                    modelsScrollPane.dispatchEvent(SwingUtilities.convertMouseEvent(comp, e, modelsScrollPane));
+                    e.consume();
+                }
             }
         };
         comp.addMouseWheelListener(forwarder);
@@ -594,6 +610,23 @@ public class MultiChatWindow extends JFrame {
                     "</style></head><body>" + html + "</body></html>";
             pane.setText(body);
             pane.setCaretPosition(0);
+            
+
+            if (pane.getParent() instanceof JPanel bubble) {
+                applyBubbleWidth(bubble, pane);
+                
+
+                bubble.revalidate();
+                messagePanel.revalidate();
+                messagePanel.repaint();
+                
+
+                if (pane == currentAssistantMessage) {
+                    SwingUtilities.invokeLater(() -> {
+                        messageScroll.getVerticalScrollBar().setValue(Integer.MAX_VALUE);
+                    });
+                }
+            }
         }
 
         private String toRgb(Color c) {
