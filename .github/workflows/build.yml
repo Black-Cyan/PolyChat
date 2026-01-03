@@ -1,0 +1,84 @@
+name: Build PolyChat
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        jdk: [21]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # 安装完整 JDK
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+
+      - name: Verify Java
+        run: java -version
+
+      # 赋予 gradlew 执行权限
+      - name: Grant execute permission for gradlew
+        if: runner.os != 'Windows'
+        shell: bash
+        run: chmod +x gradlew
+
+      # 构建 ShadowJar
+      - name: Build ShadowJar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\gradlew.bat clean shadowJar
+
+      - name: Build ShadowJar (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./gradlew clean shadowJar
+
+      # 获取版本号
+      - name: Get project version (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = .\gradlew.bat -q printVersion
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Get project version (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
+
+      # jlink 生成 runtime
+      - name: Create custom runtime
+        shell: bash
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+
+      # jpackage 打可执行程序
+      - name: Package app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
+          jpackage --name PolyChat --input build\libs --main-jar $jar.Name --runtime-image runtime --type app-image --dest dist
+
+      - name: Package app (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
+          jpackage --name PolyChat --input build/libs --main-jar $(basename $JAR_FILE) --runtime-image runtime --type app-image --dest dist
+
+      # 上传可执行文件
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows'}}-${{ env.VERSION }}
+          path: dist/
