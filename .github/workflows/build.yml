@@ -1,4 +1,4 @@
-name: Build PolyChat
+name: Build PolyChat Native
 
 on:
   push:
@@ -10,26 +10,36 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        jdk: [21]
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v3
 
-      # 安装 GraalVM JDK 21
-      - name: Setup GraalVM
-        uses: actions/setup-java@v3
-        with:
-          distribution: graalvm-ce
-          java-version: ${{ matrix.jdk }}
-          java-package: jdk
+      # 安装 GraalVM
+      - name: Install GraalVM (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          curl -s "https://get.sdkman.io" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          sdk install java 23.0.3.r17-grl
+          sdk use java 23.0.3.r17-grl
+          gu install native-image
 
-      - name: Verify Java
-        run: java -version
+      - name: Install GraalVM (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install graalvm --version=23.0.3 -y
+          $env:GRAALVM_HOME = "C:\Program Files\GraalVM\graalvm-ce-java21-23.0.3"
+          $env:PATH = "$env:GRAALVM_HOME\bin;$env:PATH"
+          gu install native-image
 
-      # 安装 Native Image
-      - name: Install Native Image
-        run: gu install native-image
+      # 验证 Java 和 native-image
+      - name: Verify GraalVM
+        run: |
+          java -version
+          native-image --version
 
       # 赋予 gradlew 执行权限
       - name: Grant execute permission for gradlew
@@ -67,18 +77,18 @@ jobs:
         shell: pwsh
         run: |
           $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
-          native-image -jar $jar.FullName --no-fallback --no-server -H:Name=PolyChat
+          native-image --no-fallback --no-server --name PolyChat $jar.FullName
 
       - name: Build Native Executable (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
-          native-image -jar "$JAR_FILE" --no-fallback --no-server -H:Name=PolyChat
+          native-image --no-fallback --no-server --name PolyChat "$JAR_FILE"
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ runner.os == 'Linux' && 'linux' || (runner.os == 'macOS' && 'macos') || 'windows' }}-${{ env.VERSION }}
+          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || 'windows'}}-${{ env.VERSION }}
           path: PolyChat*
