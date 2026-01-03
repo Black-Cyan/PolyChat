@@ -27,6 +27,8 @@ dependencies {
 }
 
 shadowJar {
+    archiveBaseName.set('PolyChat')
+    archiveClassifier.set('all')
     manifest {
         attributes(
                 'Main-Class': 'gui.window.MainWindow'

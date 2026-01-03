@@ -14,11 +14,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # 安装完整 JDK
       - name: Setup JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
@@ -26,17 +26,24 @@ jobs:
       - name: Verify Java
         run: java -version
 
+      # Make gradlew executable on Unix systems
+      - name: Make gradlew executable
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
       # 构建 ShadowJar
       - name: Build ShadowJar
-        run: ./gradlew clean shadowJar
+        uses: gradle/gradle-build-action@v3
+        with:
+          arguments: clean shadowJar
 
       # 获取版本号
       - name: Get project version
-        id: version
         run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
-      # jlink 生成 runtime
-      - name: Create custom runtime
+      # jlink 生成 runtime (Unix)
+      - name: Create custom runtime (Unix)
+        if: runner.os != 'Windows'
         run: |
           jlink \
             --module-path $JAVA_HOME/jmods \
@@ -47,8 +54,15 @@ jobs:
             --compress=2 \
             --output runtime
 
-      # jpackage 打可执行程序
-      - name: Package app
+      # jlink 生成 runtime (Windows)
+      - name: Create custom runtime (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          jlink --module-path $env:JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+
+      # jpackage 打可执行程序 (Unix)
+      - name: Package app (Unix)
+        if: runner.os != 'Windows'
         run: |
           jpackage \
             --name PolyChat \
@@ -57,6 +71,12 @@ jobs:
             --runtime-image runtime \
             --type app-image \
             --dest dist
+
+      # jpackage 打可执行程序 (Windows)
+      - name: Package app (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          jpackage --name PolyChat --input build/libs --main-jar PolyChat-$env:VERSION-all.jar --runtime-image runtime --type app-image --dest dist
 
       # 上传可执行文件
       - name: Upload Artifacts
