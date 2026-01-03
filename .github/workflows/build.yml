@@ -22,16 +22,16 @@ jobs:
         run: |
           curl -s "https://get.sdkman.io" | bash
           source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install java 23.0.3.r17-grl
-          sdk use java 23.0.3.r17-grl
+          sdk install java 23.0.2-graalce
+          sdk use java 23.0.2-graalce
           gu install native-image
 
       - name: Install GraalVM (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install graalvm --version=23.0.3 -y
-          $env:GRAALVM_HOME = "C:\Program Files\GraalVM\graalvm-ce-java21-23.0.3"
+          choco install graalvm --version=22.3.3 -y
+          $env:GRAALVM_HOME = "C:\Program Files\GraalVM\graalvm-ce-java21-22.3.3"
           $env:PATH = "$env:GRAALVM_HOME\bin;$env:PATH"
           gu install native-image
 
