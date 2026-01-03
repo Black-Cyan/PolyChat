@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'top.blackcyan'
-version = '1.0-SNAPSHOT'
+version = '1.0.0'
 
 sourceSets {
     main {
@@ -13,6 +13,12 @@ sourceSets {
         resources {
             srcDirs = ['src/main/resources']
         }
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 

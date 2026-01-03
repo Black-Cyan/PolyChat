@@ -614,12 +614,9 @@ public class MultiChatWindow extends JFrame {
 
             if (pane.getParent() instanceof JPanel bubble) {
                 applyBubbleWidth(bubble, pane);
-                
 
-                bubble.revalidate();
                 messagePanel.revalidate();
                 messagePanel.repaint();
-                
 
                 if (pane == currentAssistantMessage) {
                     SwingUtilities.invokeLater(() -> {
