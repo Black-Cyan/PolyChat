@@ -26,6 +26,10 @@ jobs:
       - name: Verify Java
         run: java -version
 
+      - name: Grant execute permission for gradlew
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
       # 构建 ShadowJar
       - name: Build ShadowJar
         run: ./gradlew clean shadowJar
@@ -37,26 +41,11 @@ jobs:
 
       # jlink 生成 runtime
       - name: Create custom runtime
-        run: |
-          jlink \
-            --module-path $JAVA_HOME/jmods \
-            --add-modules java.base,java.desktop,java.sql \
-            --strip-debug \
-            --no-header-files \
-            --no-man-pages \
-            --compress=2 \
-            --output runtime
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       # jpackage 打可执行程序
       - name: Package app
-        run: |
-          jpackage \
-            --name PolyChat \
-            --input build/libs \
-            --main-jar PolyChat-${{ env.VERSION }}-all.jar \
-            --runtime-image runtime \
-            --type app-image \
-            --dest dist
+        run: jpackage --name PolyChat --input build/libs --main-jar PolyChat-${{ env.VERSION }}-all.jar --runtime-image runtime --type app-image --dest dist
 
       # 上传可执行文件
       - name: Upload Artifacts
