@@ -44,7 +44,7 @@ tasks.register('printVersion') {
 
 tasks.register('writeVersion') {
     doLast {
-        def versionFile = file("${buildDir}/version.txt")
+        def versionFile = layout.buildDirectory.file('version.txt').get().asFile
         versionFile.parentFile.mkdirs()
         versionFile.text = project.version
     }
