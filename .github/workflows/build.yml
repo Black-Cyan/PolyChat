@@ -28,16 +28,18 @@ jobs:
 
       - name: Grant execute permission for gradlew
         if: runner.os != 'Windows'
+        shell: bash
         run: chmod +x gradlew
 
       # 构建 ShadowJar
       - name: Build ShadowJar
-        run: ./gradlew clean shadowJar
+        shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
+        run: ${{ runner.os == 'Windows' && '.\gradlew.bat clean shadowJar' || './gradlew clean shadowJar' }}
 
       # 获取版本号
       - name: Get project version
-        id: version
-        run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
+        shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
+        run: ${{ runner.os == 'Windows' && '$version = ./gradlew.bat -q printVersion; echo "VERSION=$version" >> $env:GITHUB_ENV' || 'echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV' }}
 
       # jlink 生成 runtime
       - name: Create custom runtime
@@ -45,11 +47,19 @@ jobs:
 
       # jpackage 打可执行程序
       - name: Package app
-        run: jpackage --name PolyChat --input build/libs --main-jar PolyChat-${{ env.VERSION }}-all.jar --runtime-image runtime --type app-image --dest dist
+        shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
+        run: |
+          if ($env:OS -eq "Windows_NT") {
+            $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
+            jpackage --name PolyChat --input build\libs --main-jar $jar.Name --runtime-image runtime --type app-image --dest dist
+          } else {
+            JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
+            jpackage --name PolyChat --input build/libs --main-jar $(basename $JAR_FILE) --runtime-image runtime --type app-image --dest dist
+          }
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ matrix.os }}-${{ env.VERSION }}
+          name: polychat-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os }}-${{ env.VERSION }}
           path: dist/
