@@ -65,7 +65,7 @@ jobs:
       - name: Create custom runtime (Unix)
         if: runner.os != 'Windows'
         shell: bash
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec --strip-debug --no-header-files
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       # jpackage 打可执行程序
       - name: Package app (Windows)
