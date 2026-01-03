@@ -105,7 +105,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force $env:NATIVE_OUTPUT | Out-Null
-          native-image $env:NATIVE_IMAGE_FLAGS -jar $env:SHADOW_JAR -H:Name=$env:NATIVE_NAME -H:Path=$env:NATIVE_OUTPUT
+          $flags = $env:NATIVE_IMAGE_FLAGS -split ' '
+          native-image @flags -jar $env:SHADOW_JAR -H:Name=$env:NATIVE_NAME -H:Path=$env:NATIVE_OUTPUT
 
       - name: Build native executable (Unix)
         if: runner.os != 'Windows'
