@@ -124,7 +124,6 @@ jobs:
             --linux-package-name polychat \
             --linux-app-release 1 \
             --linux-rpm-license-type "Apache-2.0" \
-            --linux-rpm-group "Applications/Utilities" \
             --linux-app-category utility \
             --dest dist/linux/rpm
           mv dist/linux/rpm/*.rpm dist/linux/rpm/PolyChat-${VERSION}-linux-rpm-x86_64.rpm
