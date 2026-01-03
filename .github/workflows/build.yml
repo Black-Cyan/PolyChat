@@ -57,9 +57,15 @@ jobs:
         run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
       # jlink 生成 runtime
-      - name: Create custom runtime
+      - name: Create custom runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec,jdk.crypto.mscapi --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+
+      - name: Create custom runtime (Unix)
+        if: runner.os != 'Windows'
         shell: bash
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec --strip-debug --no-header-files
 
       # jpackage 打可执行程序
       - name: Package app (Windows)
@@ -106,7 +112,8 @@ jobs:
             --linux-app-release 1 \
             --linux-deb-maintainer "Black Cyan <blackcyan07@outlook.com>" \
             --linux-app-category utility \
-            --dest dist/linux/deb
+            --dest dist/linux/deb \
+            --bin-dir /usr/local/bin
           mv dist/linux/deb/*.deb dist/linux/deb/PolyChat-${VERSION}-linux-deb-amd64.deb
 
       - name: Package app (Linux - rpm)
@@ -125,7 +132,8 @@ jobs:
             --linux-app-release 1 \
             --linux-rpm-license-type "Apache-2.0" \
             --linux-app-category utility \
-            --dest dist/linux/rpm
+            --dest dist/linux/rpm \
+            --bin-dir /usr/local/bin
           mv dist/linux/rpm/*.rpm dist/linux/rpm/PolyChat-${VERSION}-linux-rpm-x86_64.rpm
 
       # 上传可执行文件
