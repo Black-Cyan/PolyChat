@@ -24,6 +24,7 @@ jobs:
           source "$HOME/.sdkman/bin/sdkman-init.sh"
           sdk install java 23.0.2-graalce
           sdk use java 23.0.2-graalce
+          export PATH="$JAVA_HOME/bin:$PATH"
           gu install native-image
 
       - name: Install GraalVM (Windows)
