@@ -93,8 +93,10 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
             echo "ARTIFACT_OS=linux" >> "$GITHUB_ENV"
-          else
+          elif [ "${{ runner.os }}" = "macOS" ]; then
             echo "ARTIFACT_OS=macos" >> "$GITHUB_ENV"
+          else
+            echo "ARTIFACT_OS=unix" >> "$GITHUB_ENV"
           fi
 
       # 使用 GraalVM native-image 生成可执行文件
