@@ -20,8 +20,9 @@ jobs:
       - name: Setup GraalVM
         uses: actions/setup-java@v3
         with:
-          distribution: graalvm
+          distribution: graalvm-ce
           java-version: ${{ matrix.jdk }}
+          java-package: jdk
 
       - name: Verify Java
         run: java -version
@@ -66,18 +67,18 @@ jobs:
         shell: pwsh
         run: |
           $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
-          native-image --no-fallback --no-server --name PolyChat $jar.FullName
+          native-image -jar $jar.FullName --no-fallback --no-server -H:Name=PolyChat
 
       - name: Build Native Executable (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
-          native-image --no-fallback --no-server --name PolyChat "$JAR_FILE"
+          native-image -jar "$JAR_FILE" --no-fallback --no-server -H:Name=PolyChat
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || 'windows'}}-${{ env.VERSION }}
+          name: polychat-${{ runner.os == 'Linux' && 'linux' || (runner.os == 'macOS' && 'macos') || 'windows' }}-${{ env.VERSION }}
           path: PolyChat*
