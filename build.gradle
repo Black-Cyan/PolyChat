@@ -29,7 +29,8 @@ dependencies {
 shadowJar {
     manifest {
         attributes(
-                'Main-Class': 'gui.window.MainWindow'
+                'Main-Class': 'gui.window.MainWindow',
+                'Multi-Release': 'true'
         )
     }
 }

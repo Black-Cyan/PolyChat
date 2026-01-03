@@ -13,7 +13,7 @@ jobs:
         jdk: [21]
     runs-on: ${{ matrix.os }}
     env:
-      NATIVE_IMAGE_FLAGS: --no-fallback -O2
+      NATIVE_IMAGE_FLAGS: --no-fallback -O2 -J-Xmx4g
       SHADOW_PATTERN: PolyChat-*-all.jar
       NATIVE_NAME: PolyChat
       NATIVE_OUTPUT: dist
@@ -81,15 +81,20 @@ jobs:
           fi
           echo "SHADOW_JAR=$JAR_FILE" >> "$GITHUB_ENV"
 
-      - name: Set artifact OS label
+      - name: Set artifact OS label (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "ARTIFACT_OS=windows" >> $env:GITHUB_ENV
+
+      - name: Set artifact OS label (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Linux" ]; then
             echo "ARTIFACT_OS=linux" >> "$GITHUB_ENV"
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            echo "ARTIFACT_OS=macos" >> "$GITHUB_ENV"
           else
-            echo "ARTIFACT_OS=windows" >> "$GITHUB_ENV"
+            echo "ARTIFACT_OS=macos" >> "$GITHUB_ENV"
           fi
 
       # 使用 GraalVM native-image 生成可执行文件
