@@ -96,7 +96,7 @@ jobs:
           elif [ "${{ runner.os }}" = "macOS" ]; then
             echo "ARTIFACT_OS=macos" >> "$GITHUB_ENV"
           else
-            echo "ARTIFACT_OS=unix" >> "$GITHUB_ENV"
+            echo "ARTIFACT_OS=unknown" >> "$GITHUB_ENV"
           fi
 
       # 使用 GraalVM native-image 生成可执行文件
