@@ -12,17 +12,21 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         jdk: [21]
     runs-on: ${{ matrix.os }}
+    env:
+      NATIVE_IMAGE_FLAGS: --no-fallback -O2
+      SHADOW_PATTERN: PolyChat-*-all.jar
+      NATIVE_NAME: PolyChat
+      NATIVE_OUTPUT: dist
 
     steps:
       - uses: actions/checkout@v3
 
       # 安装 GraalVM 并启用 native-image
       - name: Setup GraalVM
-        uses: graalvm/setup-graalvm@v1
+        uses: graalvm/setup-graalvm@v1.2.0
         with:
           distribution: graalvm-community
           java-version: ${{ matrix.jdk }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image: true
 
       - name: Verify Java
@@ -58,24 +62,54 @@ jobs:
         shell: bash
         run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
+      - name: Locate ShadowJar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $jar = Get-ChildItem build\libs\$env:SHADOW_PATTERN | Sort-Object FullName | Select-Object -First 1
+          if (-not $jar) { Write-Error "Shadow JAR not found"; exit 1 }
+          echo "SHADOW_JAR=$($jar.FullName)" >> $env:GITHUB_ENV
+
+      - name: Locate ShadowJar (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          JAR_FILE=$(find build/libs -name "$SHADOW_PATTERN" | sort | head -n 1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "Shadow JAR not found" >&2
+            exit 1
+          fi
+          echo "SHADOW_JAR=$JAR_FILE" >> "$GITHUB_ENV"
+
+      - name: Set artifact OS label
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            echo "ARTIFACT_OS=linux" >> "$GITHUB_ENV"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            echo "ARTIFACT_OS=macos" >> "$GITHUB_ENV"
+          else
+            echo "ARTIFACT_OS=windows" >> "$GITHUB_ENV"
+          fi
+
       # 使用 GraalVM native-image 生成可执行文件
       - name: Build native executable (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
-          native-image --no-fallback --report-unsupported-elements-at-runtime -jar $jar.FullName -H:Name=PolyChat -H:Path=dist
+          New-Item -ItemType Directory -Force $env:NATIVE_OUTPUT | Out-Null
+          native-image $env:NATIVE_IMAGE_FLAGS -jar $env:SHADOW_JAR -H:Name=$env:NATIVE_NAME -H:Path=$env:NATIVE_OUTPUT
 
       - name: Build native executable (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          JAR_FILE=$(ls build/libs/PolyChat-*-all.jar | head -n 1)
-          native-image --no-fallback --report-unsupported-elements-at-runtime -jar "$JAR_FILE" -H:Name=PolyChat -H:Path=dist
+          mkdir -p "$NATIVE_OUTPUT"
+          native-image $NATIVE_IMAGE_FLAGS -jar "$SHADOW_JAR" -H:Name="$NATIVE_NAME" -H:Path="$NATIVE_OUTPUT"
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows'}}-native-${{ env.VERSION }}
-          path: dist/
+          name: polychat-${{ env.ARTIFACT_OS }}-native-${{ env.VERSION }}
+          path: ${{ env.NATIVE_OUTPUT }}/
