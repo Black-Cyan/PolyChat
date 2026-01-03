@@ -26,35 +26,52 @@ jobs:
       - name: Verify Java
         run: java -version
 
+      # 赋予 gradlew 执行权限
       - name: Grant execute permission for gradlew
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         shell: bash
         run: chmod +x gradlew
 
       # 构建 ShadowJar
-      - name: Build ShadowJar
-        shell: ${{ matrix.os == 'windows-latest' && 'pwsh' || 'bash' }}
-        run: ${{ runner.os == 'Windows' && '.\gradlew.bat clean shadowJar' || './gradlew clean shadowJar' }}
+      - name: Build ShadowJar (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\gradlew.bat clean shadowJar
+
+      - name: Build ShadowJar (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./gradlew clean shadowJar
 
       # 获取版本号
-      - name: Get project version
-        shell: ${{ matrix.os == 'windows-latest' && 'pwsh' || 'bash' }}
-        run: ${{ runner.os == 'Windows' && '$version = ./gradlew.bat -q printVersion; echo "VERSION=$version" >> $env:GITHUB_ENV' || 'echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV' }}
+      - name: Get project version (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = .\gradlew.bat -q printVersion
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Get project version (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
       # jlink 生成 runtime
       - name: Create custom runtime
+        shell: bash
         run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       # jpackage 打可执行程序
       - name: Package app (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
           jpackage --name PolyChat --input build\libs --main-jar $jar.Name --runtime-image runtime --type app-image --dest dist
 
       - name: Package app (Unix)
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           jpackage --name PolyChat --input build/libs --main-jar $(basename $JAR_FILE) --runtime-image runtime --type app-image --dest dist
@@ -63,5 +80,5 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os }}-${{ env.VERSION }}
+          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows'}}-${{ env.VERSION }}
           path: dist/
