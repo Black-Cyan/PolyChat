@@ -16,15 +16,19 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # 安装完整 JDK
-      - name: Setup JDK
+      # 安装 GraalVM JDK 21
+      - name: Setup GraalVM
         uses: actions/setup-java@v3
         with:
-          distribution: temurin
+          distribution: graalvm
           java-version: ${{ matrix.jdk }}
 
       - name: Verify Java
         run: java -version
+
+      # 安装 Native Image
+      - name: Install Native Image
+        run: gu install native-image
 
       # 赋予 gradlew 执行权限
       - name: Grant execute permission for gradlew
@@ -56,29 +60,24 @@ jobs:
         shell: bash
         run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
-      # jlink 生成 runtime
-      - name: Create custom runtime
-        shell: bash
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
-
-      # jpackage 打可执行程序
-      - name: Package app (Windows)
+      # 构建 Native Executable
+      - name: Build Native Executable (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
-          jpackage --name PolyChat --input build\libs --main-jar $jar.Name --runtime-image runtime --type app-image --dest dist
+          native-image --no-fallback --no-server --name PolyChat $jar.FullName
 
-      - name: Package app (Unix)
+      - name: Build Native Executable (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
-          jpackage --name PolyChat --input build/libs --main-jar $(basename $JAR_FILE) --runtime-image runtime --type app-image --dest dist
+          native-image --no-fallback --no-server --name PolyChat "$JAR_FILE"
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows'}}-${{ env.VERSION }}
-          path: dist/
+          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || 'windows'}}-${{ env.VERSION }}
+          path: PolyChat*
