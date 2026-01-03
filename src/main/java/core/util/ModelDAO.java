@@ -23,7 +23,8 @@ public class ModelDAO {
                     base_url TEXT NOT NULL,
                     api_key TEXT,
                     model_name TEXT NOT NULL,
-                    nickname TEXT
+                    nickname TEXT,
+                    deleted INTEGER DEFAULT 0
                 )
             """);
         } catch (SQLException e) {
@@ -51,13 +52,13 @@ public class ModelDAO {
     public List<Model> getAllModels() {
         List<Model> list = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT uuid, base_url, model_name, nickname FROM Model");
+                "SELECT uuid, base_url, model_name, nickname FROM Model WHERE deleted = 0");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 list.add(new Model(
                         rs.getString("uuid"),
                         rs.getString("base_url"),
-                        null, // api_key 不返回
+                        null,
                         rs.getString("model_name"),
                         rs.getString("nickname")
                 ));
@@ -94,14 +95,36 @@ public class ModelDAO {
         }
     }
 
-    // 删除模型
+    // 删除模型 (逻辑删除)
     public void deleteModel(String uuid) {
         try (PreparedStatement ps = conn.prepareStatement(
-                "DELETE FROM Model WHERE uuid = ?")) {
+                "UPDATE Model SET deleted = 1 WHERE uuid = ?")) {
             ps.setString(1, uuid);
             ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    // 通过 uuid 获取模型
+    public Model getModel(String uuid) {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT uuid, base_url, api_key, model_name, nickname FROM Model WHERE uuid = ? AND deleted = 0")) {
+            ps.setString(1, uuid);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Model(
+                            rs.getString("uuid"),
+                            rs.getString("base_url"),
+                            rs.getString("api_key"),
+                            rs.getString("model_name"),
+                            rs.getString("nickname")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
