@@ -113,7 +113,6 @@ jobs:
             --linux-deb-maintainer "Black Cyan <blackcyan07@outlook.com>" \
             --linux-app-category utility \
             --dest dist/linux/deb \
-            --bin-dir /usr/local/bin
           mv dist/linux/deb/*.deb dist/linux/deb/PolyChat-${VERSION}-linux-deb-amd64.deb
 
       - name: Package app (Linux - rpm)
