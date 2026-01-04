@@ -26,7 +26,7 @@ public final class LoggingUtil {
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to create log directory " + dir, e);
+            throw new IllegalStateException("Failed to create log directory " + dir + ". Ensure your home directory is writable.", e);
         }
         System.setProperty(LOG_DIR_PROPERTY, dir.toString());
 

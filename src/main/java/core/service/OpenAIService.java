@@ -21,13 +21,14 @@ import java.util.concurrent.TimeUnit;
  * <p>Example usage:
  * <pre>
  * OpenAIService service = new OpenAIService("https://api.openai.com", "your-api-key", "gpt-4");
+ * Logger logger = LoggerFactory.getLogger(YourClass.class);
  * List&lt;ChatMessage&gt; messages = List.of(
  *     new ChatMessage("user", "Hello!")
  * );
  * service.chatCompletionStream(messages, new StreamCallback() {
  *     public void onChunk(String content) { System.out.print(content); }
  *     public void onComplete() { System.out.println("\nDone!"); }
- *     public void onError(Exception e) { logError(e); }
+ *     public void onError(Exception e) { logger.error("Stream error", e); }
  * });
  * </pre>
  */
