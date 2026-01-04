@@ -15,6 +15,8 @@ import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -35,6 +37,8 @@ import java.util.concurrent.TimeUnit;
 public class ChatWindow extends JFrame {
 
     // ===================== 基础配置 =====================
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatWindow.class);
 
     static {
         FlatArcDarkIJTheme.setup();
@@ -574,7 +578,7 @@ public class ChatWindow extends JFrame {
                     SwingUtilities.invokeLater(sessionList::repaint);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Failed to generate chat title for session {}", session.getUuid(), e);
             }
         });
     }

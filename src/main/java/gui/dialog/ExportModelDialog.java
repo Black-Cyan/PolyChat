@@ -5,12 +5,17 @@ import core.util.ModelDAO;
 import core.util.ModelIOUtil;
 import core.util.ModelIOUtil.ModelPayload;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class ExportModelDialog extends JDialog {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExportModelDialog.class);
 
     private final JTextField tfFilePath;
     private final Model model;
@@ -91,7 +96,7 @@ public class ExportModelDialog extends JDialog {
                 JOptionPane.showMessageDialog(this, "已导出到: " + file.getAbsolutePath());
                 dispose();
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Failed to export model {}", model.getUuid(), e);
                 JOptionPane.showMessageDialog(this, "导出失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
         });

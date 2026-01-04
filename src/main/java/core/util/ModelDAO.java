@@ -2,6 +2,9 @@ package core.util;
 
 import core.entity.Model;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +12,7 @@ import java.util.UUID;
 
 public class ModelDAO {
     private final Connection conn;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ModelDAO.class);
 
     public ModelDAO(Connection conn) {
         this.conn = conn;
@@ -28,7 +32,7 @@ public class ModelDAO {
                 )
             """);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to create Model table", e);
         }
     }
 
@@ -44,7 +48,7 @@ public class ModelDAO {
             ps.setString(5, nickname);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to add model {}", modelName, e);
         }
     }
 
@@ -64,7 +68,7 @@ public class ModelDAO {
                 ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to query models", e);
         }
         return list;
     }
@@ -79,7 +83,7 @@ public class ModelDAO {
             ps.setString(4, uuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to update model info for {}", uuid, e);
         }
     }
 
@@ -91,7 +95,7 @@ public class ModelDAO {
             ps.setString(2, uuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to update apiKey for {}", uuid, e);
         }
     }
 
@@ -102,7 +106,7 @@ public class ModelDAO {
             ps.setString(1, uuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to delete model {}", uuid, e);
         }
     }
 
@@ -123,7 +127,7 @@ public class ModelDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to fetch model {}", uuid, e);
         }
         return null;
     }

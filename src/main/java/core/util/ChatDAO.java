@@ -3,6 +3,9 @@ package core.util;
 import core.entity.ChatMessage;
 import core.entity.ChatSession;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +13,7 @@ import java.util.UUID;
 
 public class ChatDAO {
     private final Connection conn;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatDAO.class);
 
     public ChatDAO(Connection conn) {
         this.conn = conn;
@@ -40,7 +44,7 @@ public class ChatDAO {
                 )
             """);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to create chat tables", e);
         }
     }
 
@@ -56,7 +60,7 @@ public class ChatDAO {
             ps.executeUpdate();
             return new ChatSession(uuid, modelUuid, title, now);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to create chat session for model {}", modelUuid, e);
             return null;
         }
     }
@@ -77,7 +81,7 @@ public class ChatDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to list chat sessions for model {}", modelUuid, e);
         }
         return list;
     }
@@ -98,7 +102,7 @@ public class ChatDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to list messages for session {}", sessionUuid, e);
         }
         return list;
     }
@@ -114,7 +118,7 @@ public class ChatDAO {
             ps.setLong(5, timestamp);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to add message to session {}", sessionUuid, e);
         }
     }
 
@@ -125,7 +129,7 @@ public class ChatDAO {
             ps.setString(1, sessionUuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to delete session {}", sessionUuid, e);
         }
         // Also logically delete all messages in this session
         try (PreparedStatement ps = conn.prepareStatement(
@@ -133,7 +137,7 @@ public class ChatDAO {
             ps.setString(1, sessionUuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to delete messages for session {}", sessionUuid, e);
         }
     }
 
@@ -144,7 +148,7 @@ public class ChatDAO {
             ps.setString(2, sessionUuid);
             ps.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to update title for session {}", sessionUuid, e);
         }
     }
 }
