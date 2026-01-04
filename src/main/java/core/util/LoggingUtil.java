@@ -12,8 +12,8 @@ public final class LoggingUtil {
     private static final String LOG_DIR_NAME = ".polychat";
     private static final String LOG_DIR_PROPERTY = "polychat.log.dir";
 
-    private static volatile boolean initialized = false;
-    private static volatile Logger logger;
+    private static boolean initialized = false;
+    private static Logger logger;
 
     private LoggingUtil() {
     }
@@ -37,9 +37,6 @@ public final class LoggingUtil {
     }
 
     private static void logBanner() {
-        if (logger == null) {
-            return;
-        }
         String banner = """
                   ____       _        ____ _           _   
                  |  _ \\ ___ | | ___  / ___| |__   __ _| |_ 
