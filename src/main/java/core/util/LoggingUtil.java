@@ -13,7 +13,7 @@ public final class LoggingUtil {
     private static final String LOG_DIR_PROPERTY = "polychat.log.dir";
 
     private static volatile boolean initialized = false;
-    private static Logger logger;
+    private static volatile Logger logger;
 
     private LoggingUtil() {
     }
@@ -26,7 +26,7 @@ public final class LoggingUtil {
         try {
             Files.createDirectories(dir);
         } catch (IOException e) {
-            System.err.println("Failed to create log directory " + dir + ": " + e.getMessage());
+            throw new IllegalStateException("Failed to create log directory " + dir, e);
         }
         System.setProperty(LOG_DIR_PROPERTY, dir.toString());
 
