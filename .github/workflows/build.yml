@@ -107,10 +107,8 @@ jobs:
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/deb
-          chmod +x scripts/postinstall.sh
           $JAVA_HOME/bin/jpackage \
             --type deb \
-            --linux-post-install-script scripts/postinstall.sh \
             --icon icons/polychat.png \
             --name PolyChat \
             --input build/libs \
@@ -120,6 +118,7 @@ jobs:
             --linux-app-release 1 \
             --linux-deb-maintainer "Black Cyan <blackcyan07@outlook.com>" \
             --linux-app-category utility \
+            --linux-shortcut \
             --dest dist/linux/deb
           mv dist/linux/deb/*.deb dist/linux/deb/PolyChat-${VERSION}-linux-deb-amd64.deb
 
@@ -129,10 +128,8 @@ jobs:
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/rpm
-          chmod +x scripts/postinstall.sh
           $JAVA_HOME/bin/jpackage \
             --type rpm \
-            --linux-post-install-script scripts/postinstall.sh \
             --icon icons/polychat.png \
             --name PolyChat \
             --input build/libs \
@@ -142,6 +139,7 @@ jobs:
             --linux-app-release 1 \
             --linux-rpm-license-type "Apache-2.0" \
             --linux-app-category utility \
+            --linux-shortcut \
             --dest dist/linux/rpm
           mv dist/linux/rpm/*.rpm dist/linux/rpm/PolyChat-${VERSION}-linux-rpm-x86_64.rpm
 
