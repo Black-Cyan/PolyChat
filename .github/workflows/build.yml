@@ -109,7 +109,7 @@ jobs:
           mkdir -p dist/linux/deb
           $JAVA_HOME/bin/jpackage \
             --type deb \
-            --icon icons/polychat.png \
+            --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
             --main-jar $(basename $JAR_FILE) \
@@ -130,7 +130,7 @@ jobs:
           mkdir -p dist/linux/rpm
           $JAVA_HOME/bin/jpackage \
             --type rpm \
-            --icon icons/polychat.png \
+            --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
             --main-jar $(basename $JAR_FILE) \
