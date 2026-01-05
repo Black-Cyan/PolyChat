@@ -12,11 +12,6 @@ public final class LoggingUtil {
     private static final String LOG_DIR_NAME = ".polychat";
     private static final String LOG_DIR_PROPERTY = "polychat.log.dir";
 
-    static {
-        // Ensure JNDI lookups are disabled so logback does not require the java.naming module
-        System.setProperty("logback.disableJNDI", "true");
-    }
-
     private static boolean initialized = false;
     private static Logger logger;
 
