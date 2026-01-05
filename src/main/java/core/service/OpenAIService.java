@@ -21,7 +21,8 @@ import java.util.concurrent.TimeUnit;
  * <p>Example usage:
  * <pre>
  * OpenAIService service = new OpenAIService("https://api.openai.com", "your-api-key", "gpt-4");
- * Logger logger = LoggerFactory.getLogger(OpenAIService.class);
+ * // Use your own application's logger here, not OpenAIService's internal logger
+ * Logger logger = LoggerFactory.getLogger(YourApplication.class);
  * List&lt;ChatMessage&gt; messages = List.of(
  *     new ChatMessage("user", "Hello!")
  * );

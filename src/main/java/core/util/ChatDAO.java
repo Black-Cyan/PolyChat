@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ChatDAO {
-    private final Connection conn;
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatDAO.class);
+    private final Connection conn;
 
     public ChatDAO(Connection conn) {
         this.conn = conn;

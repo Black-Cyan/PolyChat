@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ModelDAO {
-    private final Connection conn;
     private static final Logger LOGGER = LoggerFactory.getLogger(ModelDAO.class);
+    private final Connection conn;
 
     public ModelDAO(Connection conn) {
         this.conn = conn;
