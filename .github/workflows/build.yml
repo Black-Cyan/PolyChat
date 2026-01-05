@@ -60,12 +60,12 @@ jobs:
       - name: Create custom runtime (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec,jdk.crypto.mscapi --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,java.naming,jdk.crypto.ec,jdk.crypto.mscapi --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       - name: Create custom runtime (Unix)
         if: runner.os != 'Windows'
         shell: bash
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,jdk.crypto.ec --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,java.naming,jdk.crypto.ec --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       # jpackage 打可执行程序
       - name: Package app (Windows)
@@ -77,13 +77,18 @@ jobs:
           jpackage `
             --name PolyChat `
             --input build\libs `
+            --main-class gui.window.MainWindow `
             --main-jar $jar.Name `
             --runtime-image runtime `
             --type msi `
-            --dest dist/windows
+            --win-menu `
+            --win-shortcut-prompt `
+            --win-dir-chooser `
+            --icon icons\polychat.ico `
+            --dest dist\windows
 
       - name: Package app (MacOS)
-        if: runner.os == 'MacOS'
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
@@ -91,9 +96,11 @@ jobs:
           jpackage \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --type dmg \
+            --icon icons/polychat.icns \
             --dest dist/macos
 
       - name: Package app (Linux - deb)
@@ -102,16 +109,19 @@ jobs:
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/deb
-          jpackage \
+          $JAVA_HOME/bin/jpackage \
             --type deb \
+            --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --linux-package-name polychat \
             --linux-app-release 1 \
             --linux-deb-maintainer "Black Cyan <blackcyan07@outlook.com>" \
             --linux-app-category utility \
+            --linux-shortcut \
             --dest dist/linux/deb
           mv dist/linux/deb/*.deb dist/linux/deb/PolyChat-${VERSION}-linux-deb-amd64.deb
 
@@ -121,16 +131,19 @@ jobs:
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/rpm
-          jpackage \
+          $JAVA_HOME/bin/jpackage \
             --type rpm \
+            --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --linux-package-name polychat \
             --linux-app-release 1 \
             --linux-rpm-license-type "Apache-2.0" \
             --linux-app-category utility \
+            --linux-shortcut \
             --dest dist/linux/rpm
           mv dist/linux/rpm/*.rpm dist/linux/rpm/PolyChat-${VERSION}-linux-rpm-x86_64.rpm
 

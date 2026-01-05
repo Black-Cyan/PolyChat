@@ -6,6 +6,7 @@ import core.entity.Model;
 import core.util.DBUtil;
 import core.util.ModelDAO;
 import core.util.ChatDAO;
+import core.util.LoggingUtil;
 import gui.card.ModelCard;
 import gui.dialog.NewModelDialog;
 import gui.dialog.ImportModelDialog;
@@ -173,6 +174,7 @@ public class MainWindow extends JFrame {
     // ===================== Main =====================
 
     public static void main(String[] args) {
+        LoggingUtil.initialize();
         FlatArcDarkIJTheme.setup();
 
         UIManager.put("Component.arc", 10);

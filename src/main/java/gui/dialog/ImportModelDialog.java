@@ -4,6 +4,9 @@ import core.util.ModelDAO;
 import core.util.ModelIOUtil;
 import core.util.ModelIOUtil.ModelPayload;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
@@ -11,6 +14,8 @@ import java.io.File;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class ImportModelDialog extends JDialog {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImportModelDialog.class);
 
     private final JTextField tfFilePath;
 
@@ -84,7 +89,7 @@ public class ImportModelDialog extends JDialog {
                 if (onImported != null) onImported.run();
                 dispose();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                LOGGER.error("Failed to import model from {}", path, ex);
                 JOptionPane.showMessageDialog(this, "导入失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
         });
