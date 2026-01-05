@@ -96,6 +96,7 @@ jobs:
           jpackage \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --type dmg \
@@ -113,6 +114,7 @@ jobs:
             --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --linux-package-name polychat \
@@ -134,6 +136,7 @@ jobs:
             --icon icons/polychat.svg \
             --name PolyChat \
             --input build/libs \
+            --main-class gui.window.MainWindow \
             --main-jar $(basename $JAR_FILE) \
             --runtime-image runtime \
             --linux-package-name polychat \
