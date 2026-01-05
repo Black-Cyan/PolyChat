@@ -23,7 +23,6 @@ public final class LoggingUtil {
             return;
         }
         // Ensure JNDI lookups are disabled so logback does not require the java.naming module
-        System.setProperty("logback.disable.jndi", "true");
         System.setProperty("logback.disableJNDI", "true");
         Path dir = Paths.get(System.getProperty("user.home"), LOG_DIR_NAME);
         try {
