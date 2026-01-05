@@ -77,11 +77,12 @@ jobs:
           jpackage `
             --name PolyChat `
             --input build\libs `
+            --main-class gui.window.MainWindow `
             --main-jar $jar.Name `
             --runtime-image runtime `
             --type msi `
             --win-menu `
-            --win-shortcut `
+            --win-shortcut-prompt `
             --win-dir-chooser `
             --icon icons\polychat.ico `
             --dest dist\windows
