@@ -108,7 +108,7 @@ jobs:
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/deb
           chmod +x scripts/postinstall.sh
-          jpackage \
+          $JAVA_HOME/bin/jpackage \
             --type deb \
             --linux-post-install-script scripts/postinstall.sh \
             --icon icons/polychat.png \
@@ -130,7 +130,7 @@ jobs:
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
           mkdir -p dist/linux/rpm
           chmod +x scripts/postinstall.sh
-          jpackage \
+          $JAVA_HOME/bin/jpackage \
             --type rpm \
             --linux-post-install-script scripts/postinstall.sh \
             --icon icons/polychat.png \
