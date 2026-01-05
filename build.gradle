@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'top.blackcyan'
-version = '1.0.0'
+version = '1.0.1'
 
 java {
     toolchain {
@@ -24,6 +24,8 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'com.vladsch.flexmark:flexmark-all:0.64.8'
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+    implementation 'ch.qos.logback:logback-classic:1.5.6'
 }
 
 shadowJar {

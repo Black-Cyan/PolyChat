@@ -5,6 +5,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import okhttp3.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -18,17 +21,21 @@ import java.util.concurrent.TimeUnit;
  * <p>Example usage:
  * <pre>
  * OpenAIService service = new OpenAIService("https://api.openai.com", "your-api-key", "gpt-4");
+ * // Use your own application's logger here, not OpenAIService's internal logger
+ * Logger logger = LoggerFactory.getLogger(YourApplication.class);
  * List&lt;ChatMessage&gt; messages = List.of(
  *     new ChatMessage("user", "Hello!")
  * );
  * service.chatCompletionStream(messages, new StreamCallback() {
  *     public void onChunk(String content) { System.out.print(content); }
  *     public void onComplete() { System.out.println("\nDone!"); }
- *     public void onError(Exception e) { e.printStackTrace(); }
+ *     public void onError(Exception e) { logger.error("Stream error", e); }
  * });
  * </pre>
  */
 public class OpenAIService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenAIService.class);
+
     private final String baseUrl;
     private final String apiKey;
     private final String modelName;
@@ -194,8 +201,7 @@ public class OpenAIService {
                                         }
                                     }
                                 } catch (Exception e) {
-                                    // Log and skip invalid JSON chunks
-                                    System.err.println("Failed to parse SSE chunk: " + data + " - " + e.getMessage());
+                                    LOGGER.warn("Failed to parse SSE chunk: {}", data, e);
                                 }
                             }
                         }

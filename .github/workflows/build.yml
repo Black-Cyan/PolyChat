@@ -57,9 +57,15 @@ jobs:
         run: echo "VERSION=$(./gradlew -q printVersion)" >> $GITHUB_ENV
 
       # jlink 生成 runtime
-      - name: Create custom runtime
+      - name: Create custom runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,java.naming,jdk.crypto.ec,jdk.crypto.mscapi --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+
+      - name: Create custom runtime (Unix)
+        if: runner.os != 'Windows'
         shell: bash
-        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
+        run: jlink --module-path $JAVA_HOME/jmods --add-modules java.base,java.desktop,java.sql,java.net.http,java.naming,jdk.crypto.ec --strip-debug --no-header-files --no-man-pages --compress=2 --output runtime
 
       # jpackage 打可执行程序
       - name: Package app (Windows)
@@ -67,18 +73,83 @@ jobs:
         shell: pwsh
         run: |
           $jar = Get-ChildItem build\libs\PolyChat-*-all.jar | Select-Object -First 1
-          jpackage --name PolyChat --input build\libs --main-jar $jar.Name --runtime-image runtime --type app-image --dest dist
+          New-Item -ItemType Directory -Force -Path dist/windows | Out-Null
+          jpackage `
+            --name PolyChat `
+            --input build\libs `
+            --main-class gui.window.MainWindow `
+            --main-jar $jar.Name `
+            --runtime-image runtime `
+            --type msi `
+            --win-menu `
+            --win-shortcut-prompt `
+            --win-dir-chooser `
+            --icon icons\polychat.ico `
+            --dest dist\windows
 
-      - name: Package app (Unix)
-        if: runner.os != 'Windows'
+      - name: Package app (MacOS)
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
-          jpackage --name PolyChat --input build/libs --main-jar $(basename $JAR_FILE) --runtime-image runtime --type app-image --dest dist
+          mkdir -p dist/macos
+          jpackage \
+            --name PolyChat \
+            --input build/libs \
+            --main-class gui.window.MainWindow \
+            --main-jar $(basename $JAR_FILE) \
+            --runtime-image runtime \
+            --type dmg \
+            --icon icons/polychat.icns \
+            --dest dist/macos
+
+      - name: Package app (Linux - deb)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
+          mkdir -p dist/linux/deb
+          $JAVA_HOME/bin/jpackage \
+            --type deb \
+            --icon icons/polychat.svg \
+            --name PolyChat \
+            --input build/libs \
+            --main-class gui.window.MainWindow \
+            --main-jar $(basename $JAR_FILE) \
+            --runtime-image runtime \
+            --linux-package-name polychat \
+            --linux-app-release 1 \
+            --linux-deb-maintainer "Black Cyan <blackcyan07@outlook.com>" \
+            --linux-app-category utility \
+            --linux-shortcut \
+            --dest dist/linux/deb
+          mv dist/linux/deb/*.deb dist/linux/deb/PolyChat-${VERSION}-linux-deb-amd64.deb
+
+      - name: Package app (Linux - rpm)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          JAR_FILE=$(ls build/libs/PolyChat-*-all.jar)
+          mkdir -p dist/linux/rpm
+          $JAVA_HOME/bin/jpackage \
+            --type rpm \
+            --icon icons/polychat.svg \
+            --name PolyChat \
+            --input build/libs \
+            --main-class gui.window.MainWindow \
+            --main-jar $(basename $JAR_FILE) \
+            --runtime-image runtime \
+            --linux-package-name polychat \
+            --linux-app-release 1 \
+            --linux-rpm-license-type "Apache-2.0" \
+            --linux-app-category utility \
+            --linux-shortcut \
+            --dest dist/linux/rpm
+          mv dist/linux/rpm/*.rpm dist/linux/rpm/PolyChat-${VERSION}-linux-rpm-x86_64.rpm
 
       # 上传可执行文件
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: polychat-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows'}}-${{ env.VERSION }}
+          name: polychat-${{ runner.os }}-${{ env.VERSION }}
           path: dist/
