@@ -13,15 +13,15 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service for interacting with OpenAI-compatible chat completion APIs.
- * 
- * <p>This service provides streaming and non-streaming chat completions using the OpenAI API format.
- * All methods are thread-safe and can be called from multiple threads concurrently.
- * 
- * <p>Example usage:
+ * 用于与 OpenAl 兼容的聊天完成 API 进行交互的服务。
+ *
+ * <p>此服务使用 OpenAl API 格式提供流式和非流式聊天完成功能。
+ * 所有方法都是线程安全的，可以从多个线程并发调用。
+ *
+ * <p>用法示例：
  * <pre>
  * OpenAIService service = new OpenAIService("https://api.openai.com", "your-api-key", "gpt-4");
- * // Use your own application's logger here, not OpenAIService's internal logger
+ * // 在此处使用您自己的应用程序记录器，而不是 OpenAIService 的内部记录器
  * Logger logger = LoggerFactory.getLogger(YourApplication.class);
  * List&lt;ChatMessage&gt; messages = List.of(
  *     new ChatMessage("user", "Hello!")
@@ -43,12 +43,12 @@ public class OpenAIService {
     private final Gson gson;
 
     /**
-     * Creates a new OpenAI service client.
-     * 
-     * @param baseUrl The base URL of the API endpoint (e.g., "https://api.openai.com")
-     * @param apiKey The API key for authentication
-     * @param modelName The model name to use (e.g., "gpt-4")
-     * @throws IllegalArgumentException if any parameter is null or empty
+     * 创建一个新的 OpenAl 服务客户端。
+     *
+     * @param baseUrl API 端点的基本 URL（例如，"https://api.openai.com"）
+     * @param apiKey 用于身份验证的 API 密钥
+     * @param modelName 要使用的模型名称（例如，"gpt-4"）
+     * @throws IllegalArgumentException 如果任何参数为 null 或为空
      */
     public OpenAIService(String baseUrl, String apiKey, String modelName) {
         if (baseUrl == null || baseUrl.trim().isEmpty()) {
@@ -73,7 +73,7 @@ public class OpenAIService {
     }
 
     /**
-     * Represents a chat message with a role and content.
+     * 表示具有角色和内容的聊天消息。
      */
     public static class ChatMessage {
         private final String role;
@@ -94,38 +94,38 @@ public class OpenAIService {
     }
 
     /**
-     * Callback interface for streaming chat completions.
-     * All methods are called on a background thread (OkHttp's thread pool).
+     * 用于流式聊天完成的回调接口。
+     * 所有方法都在后台线程（OkHttp 的线程池）上调用。
      */
     public interface StreamCallback {
         /**
-         * Called when a chunk of the response is received.
-         * This is invoked on a background thread.
-         * 
-         * @param content The content chunk received
+         * 收到响应块时调用。
+         * 这在后台线程上调用。
+         *
+         * @param content 收到的内容块
          */
         void onChunk(String content);
         
         /**
-         * Called when the streaming response is complete.
-         * This is invoked on a background thread.
+         * 当流式响应完成时调用。
+         * 这在后台线程上调用。
          */
         void onComplete();
         
         /**
-         * Called when an error occurs during streaming.
-         * This is invoked on a background thread.
-         * 
-         * @param e The exception that occurred
+         * 当流式传输期间发生错误时调用。
+         * 这在后台线程上调用。
+         *
+         * @param e 发生的异常
          */
         void onError(Exception e);
     }
 
     /**
-     * Send a chat completion request with streaming support
-     * @param messages The conversation history
-     * @param callback The callback for handling streamed responses
-     * @throws IllegalArgumentException if messages is null or empty
+     * 发送带有流式支持的聊天完成请求
+     * @param messages 对话历史记录
+     * @param callback 用于处理流式响应的回调
+     * @throws IllegalArgumentException 如果 messages 为 null 或为空
      */
     public void chatCompletionStream(List<ChatMessage> messages, StreamCallback callback) {
         if (messages == null || messages.isEmpty()) {
@@ -215,11 +215,11 @@ public class OpenAIService {
     }
 
     /**
-     * Send a non-streaming chat completion request
-     * @param messages The conversation history
-     * @return The complete response content
-     * @throws IOException If the request fails
-     * @throws IllegalArgumentException if messages is null or empty
+     * 发送非流式聊天完成请求
+     * @param messages 对话历史记录
+     * @return 完整的响应内容
+     * @throws IOException 如果请求失败
+     * @throws IllegalArgumentException 如果 messages 为 null 或为空
      */
     public String chatCompletion(List<ChatMessage> messages) throws IOException {
         if (messages == null || messages.isEmpty()) {
@@ -272,7 +272,7 @@ public class OpenAIService {
     }
     
     /**
-     * Shutdown the HTTP client and release resources
+     * 关闭 HTTP 客户端并释放资源
      */
     public void shutdown() {
         if (client != null) {

@@ -123,7 +123,7 @@ public class ChatDAO {
     }
 
     public void deleteSession(String sessionUuid) {
-        // Logical deletion - set deleted flag to 1
+        // 逻辑删除 - 将 deleted 标志设置为 1
         try (PreparedStatement ps = conn.prepareStatement(
                 "UPDATE ChatSession SET deleted = 1 WHERE session_uuid = ?")) {
             ps.setString(1, sessionUuid);
@@ -131,7 +131,7 @@ public class ChatDAO {
         } catch (SQLException e) {
             LOGGER.error("Failed to delete session {}", sessionUuid, e);
         }
-        // Also logically delete all messages in this session
+        // 同时逻辑删除此会话中的所有消息
         try (PreparedStatement ps = conn.prepareStatement(
                 "UPDATE ChatMessage SET deleted = 1 WHERE session_uuid = ?")) {
             ps.setString(1, sessionUuid);

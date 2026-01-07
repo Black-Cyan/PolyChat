@@ -33,8 +33,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Multi-chat window that allows sending messages to multiple models simultaneously.
- * Each model gets its own panel with streaming responses handled concurrently.
+ * 多聊天窗口，允许同时向多个模型发送消息。
+ * 每个模型都有自己的面板，并并发处理流式响应。
  */
 public class MultiChatWindow extends JFrame {
 
@@ -53,11 +53,11 @@ public class MultiChatWindow extends JFrame {
     private final ChatDAO chatDAO;
     private final ModelDAO modelDAO;
     private final Map<String, ModelChatPanel> chatPanels = new HashMap<>();
-    // Use fixed thread pool to prevent resource exhaustion
+    // 使用固定线程池以防止资源耗尽
     private final ExecutorService executorService = Executors.newFixedThreadPool(20);
     private volatile boolean isWindowActive = true;
     
-    // Per-session locks for fine-grained synchronization (thread-safe map)
+    // 每个会话的锁，用于细粒度同步（线程安全映射）
     private final Map<String, Object> sessionLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final Parser mdParser;
@@ -86,7 +86,7 @@ public class MultiChatWindow extends JFrame {
         add(buildMainPanel(), BorderLayout.CENTER);
         add(buildInputPanel(), BorderLayout.SOUTH);
 
-        // Initialize chat panels for each model
+        // 为每个模型初始化聊天面板
         initializeChatPanels();
 
         addWindowListener(new WindowAdapter() {
@@ -109,7 +109,7 @@ public class MultiChatWindow extends JFrame {
                 );
             }
 
-            // Create or get session for this model
+            // 为此模型创建或获取会话
             ChatSession session = createOrGetSession(model);
             
             ModelChatPanel panel = new ModelChatPanel(model, service, session);
@@ -117,16 +117,16 @@ public class MultiChatWindow extends JFrame {
             modelsContainer.add(panel);
         }
         
-        // Install wheel forwarding from model panels to main scroll pane
-        // This allows scrolling the main container when mouse is over model panels
+        // 安装从模型面板到主滚动窗格的滚轮转发
+        // 这允许在鼠标位于模型面板上方时滚动主容器
         for (ModelChatPanel panel : chatPanels.values()) {
             installWheelForwardingToMain(panel);
         }
     }
     
     /**
-     * Forwards mouse wheel events from model panels to the main scroll pane
-     * when the main scroll pane needs scrolling and the mouse is not over a chat message scroll area
+     * 当主滚动窗格需要滚动并且鼠标不在聊天消息滚动区域上方时，
+     * 将鼠标滚轮事件从模型面板转发到主滚动窗格
      */
     private void installWheelForwardingToMain(Component comp) {
         if (comp == null || modelsScrollPane == null) return;
@@ -165,7 +165,7 @@ public class MultiChatWindow extends JFrame {
     }
 
     private ChatSession createOrGetSession(Model model) {
-        // Create a new session for multi-chat
+        // 为多模型对话创建一个新会话
         return chatDAO.createSession(model.getUuid(), "多模型对话");
     }
 
@@ -173,11 +173,11 @@ public class MultiChatWindow extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.putClientProperty("FlatLaf.style", "background:$Panel.background");
 
-        // Create header
+        // 创建头部
         JPanel header = buildHeader();
         mainPanel.add(header, BorderLayout.NORTH);
 
-        // Create scrollable container for model chat panels
+        // 为模型聊天面板创建可滚动容器
         modelsContainer = new JPanel();
         modelsContainer.setLayout(new GridLayout(1, models.size(), 10, 0));
         modelsContainer.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -187,7 +187,7 @@ public class MultiChatWindow extends JFrame {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         
-        // Enable mouse wheel scrolling with proper speed
+        // 以适当的速度启用鼠标滚轮滚动
         scrollPane.getVerticalScrollBar().setBlockIncrement(50);
         scrollPane.setWheelScrollingEnabled(true);
 
@@ -236,7 +236,7 @@ public class MultiChatWindow extends JFrame {
                         "border:0,0,0,0;" +
                         "font:+1");
         
-        // Bind Enter to send message, Shift+Enter for new line
+        // 绑定 Enter 发送消息，Shift+Enter 换行
         inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "send-message");
         inputArea.getInputMap().put(KeyStroke.getKeyStroke("shift ENTER"), "insert-break");
         inputArea.getActionMap().put("send-message", new AbstractAction() {
@@ -271,15 +271,15 @@ public class MultiChatWindow extends JFrame {
         String userMessage = text;
         inputArea.setText("");
 
-        // Send to all models concurrently via executor
-        // Each sendMessageAsync call creates an independent CompletableFuture
-        // that runs on the executor service, ensuring true parallel execution
+        // 通过执行程序并发向所有模型发送
+        // 每个 sendMessageAsync 调用都会创建一个独立的 CompletableFuture
+        // 在执行程序服务上运行，确保真正的并行执行
         for (ModelChatPanel panel : chatPanels.values()) {
             panel.sendMessageAsync(userMessage, executorService);
         }
         
-        // Re-enable input immediately to allow sending more messages
-        // The async tasks run independently in background
+        // 立即重新启用输入以允许发送更多消息
+        // 异步任务在后台独立运行
         setInputEnabled(true);
     }
 
@@ -291,7 +291,7 @@ public class MultiChatWindow extends JFrame {
     private void cleanup() {
         isWindowActive = false;
         
-        // Shutdown all OpenAIService instances to release HTTP client resources
+        // 关闭所有 OpenAIService 实例以释放 HTTP 客户端资源
         for (ModelChatPanel panel : chatPanels.values()) {
             if (panel.openAIService != null) {
                 panel.openAIService.shutdown();
@@ -310,18 +310,18 @@ public class MultiChatWindow extends JFrame {
     }
 
     /**
-     * Panel for a single model's chat within the multi-chat window
+     * 多聊天窗口中单个模型的聊天面板
      */
     private class ModelChatPanel extends JPanel {
         private final Model model;
-        // Package-private to allow cleanup from outer class
+        // 包私有以允许从外部类清理
         final OpenAIService openAIService;
         private final ChatSession session;
         private final JPanel messagePanel;
         private JScrollPane messageScroll;
-        // currentAssistantMessage is only accessed during a single message send operation
-        // Thread safety: Only one message is processed at a time per panel, and all UI
-        // updates go through SwingUtilities.invokeLater() which serializes on EDT
+        // currentAssistantMessage 仅在单个消息发送操作期间访问
+        // 线程安全：每个面板一次只处理一条消息，所有 UI
+        // 更新都通过 SwingUtilities.invokeLater() 在 EDT 上序列化
         private JEditorPane currentAssistantMessage = null;
 
         public ModelChatPanel(Model model, OpenAIService service, ChatSession session) {
@@ -332,10 +332,10 @@ public class MultiChatWindow extends JFrame {
             setLayout(new BorderLayout());
             setBorder(new LineBorder(UIManager.getColor("Component.borderColor"), 1, true));
 
-            // Add header with model name
+            // 添加带有模型名称的头部
             add(buildModelHeader(), BorderLayout.NORTH);
 
-            // Add message panel
+            // 添加消息面板
             messagePanel = new JPanel();
             messagePanel.setLayout(new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
             messagePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -347,19 +347,19 @@ public class MultiChatWindow extends JFrame {
             messageScroll.setBorder(BorderFactory.createEmptyBorder());
             messageScroll.getVerticalScrollBar().setUnitIncrement(16);
             
-            // Enable mouse wheel scrolling with proper speed
+            // 以适当的速度启用鼠标滚轮滚动
             messageScroll.getVerticalScrollBar().setBlockIncrement(50);
             messageScroll.setWheelScrollingEnabled(true);
             
             messageScroll.getViewport().setOpaque(false);
             messageScroll.setOpaque(false);
 
-            // Ensure mouse wheel over any part of this panel scrolls the message area
+            // 确保鼠标在面板任何部分上的滚轮都会滚动消息区域
             installWheelForwarding(this, messageScroll);
 
             add(messageScroll, BorderLayout.CENTER);
 
-            // Show warning if API not configured
+            // 如果 API 未配置，显示警告
             if (openAIService == null) {
                 JLabel warning = new JLabel("<html><center>API未配置<br/>无法发送消息</center></html>");
                 warning.setForeground(new Color(200, 150, 0));
@@ -367,7 +367,7 @@ public class MultiChatWindow extends JFrame {
                 messagePanel.add(warning);
             }
 
-            // Load existing messages
+            // 加载现有消息
             loadMessages();
         }
 
@@ -405,7 +405,7 @@ public class MultiChatWindow extends JFrame {
             if (session == null) {
                 return;
             }
-            // Read operations don't need synchronization as they're safe for concurrent reads
+            // 读取操作不需要同步，因为它们对于并发读取是安全的
             List<ChatMessage> messages = chatDAO.listMessages(session.getUuid());
             for (ChatMessage msg : messages) {
                 addMessageBubble(msg);
@@ -417,7 +417,7 @@ public class MultiChatWindow extends JFrame {
         }
 
         public void sendMessageAsync(String userMessage, ExecutorService executor) {
-            // Submit to executor for true concurrent execution
+            // 提交给执行程序以实现真正的并发执行
             CompletableFuture.runAsync(() -> sendMessageInternal(userMessage), executor);
         }
 
@@ -426,16 +426,16 @@ public class MultiChatWindow extends JFrame {
                 return;
             }
 
-            // Save user message to database (synchronized per session, not globally)
+            // 将用户消息保存到数据库（按会话同步，而不是全局）
             Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
             synchronized (sessionLock) {
                 chatDAO.addMessage(session.getUuid(), "user", userMessage, System.currentTimeMillis());
             }
 
-            // Cache the message history to avoid repeated DB reads
+            // 缓存消息历史记录以避免重复读取数据库
             List<ChatMessage> currentHistory = chatDAO.listMessages(session.getUuid());
             
-            // Add user message to UI immediately
+            // 立即将用户消息添加到 UI
             SwingUtilities.invokeLater(() -> {
                 if (!isWindowActive) return;
                 if (!currentHistory.isEmpty()) {
@@ -447,28 +447,28 @@ public class MultiChatWindow extends JFrame {
                 createStreamingAssistantBubble();
             });
 
-            // Prepare API messages from cached history
+            // 从缓存的历史记录准备 API 消息
             List<OpenAIService.ChatMessage> apiMessages = new ArrayList<>();
             for (ChatMessage msg : currentHistory) {
                 apiMessages.add(new OpenAIService.ChatMessage(msg.getRole(), msg.getContent()));
             }
 
-            // StringBuilder for streaming updates (each streaming session has its own instance)
-            // This is safe because each model panel processes messages independently
+            // 用于流式更新的 StringBuilder（每个流式会话都有自己的实例）
+            // 这是安全的，因为每个模型面板独立处理消息
             StringBuilder fullResponse = new StringBuilder();
             
-            // Throttle UI updates to avoid overwhelming EDT
-            // Use AtomicLong for thread-safe timestamp tracking
+            // 限制 UI 更新以避免使 EDT 不堪重负
+            // 使用 AtomicLong 进行线程安全的时间戳跟踪
             AtomicLong lastUpdateTime = new AtomicLong(0);
-            final int UPDATE_INTERVAL_MS = 50; // Update UI at most every 50ms
-            
+            final int UPDATE_INTERVAL_MS = 50; // 最多每 50 毫秒更新一次 UI
+
             openAIService.chatCompletionStream(apiMessages, new OpenAIService.StreamCallback() {
                 @Override
                 public void onChunk(String content) {
                     fullResponse.append(content);
                     if (isWindowActive) {
                         long currentTime = System.currentTimeMillis();
-                        // Throttle updates to avoid EDT overload (thread-safe with AtomicLong)
+                        // 限制更新以避免 EDT 过载（使用 AtomicLong 线程安全）
                         if (currentTime - lastUpdateTime.get() >= UPDATE_INTERVAL_MS) {
                             lastUpdateTime.set(currentTime);
                             String currentContent = fullResponse.toString();
@@ -487,18 +487,18 @@ public class MultiChatWindow extends JFrame {
 
                     String assistantResponse = fullResponse.toString();
                     
-                    // Save to database in background
+                    // 在后台保存到数据库
                     Object sessionLock = sessionLocks.computeIfAbsent(session.getUuid(), k -> new Object());
                     synchronized (sessionLock) {
                         chatDAO.addMessage(session.getUuid(), "assistant", assistantResponse, System.currentTimeMillis());
                     }
 
-                    // Final UI update with complete response
+                    // 使用完整响应进行最终 UI 更新
                     SwingUtilities.invokeLater(() -> {
                         if (!isWindowActive) return;
                         
-                        // Final render to ensure we show the complete response
-                        // The streaming bubble stays as the final message - no need to reload all messages
+                        // 最终渲染以确保我们显示完整的响应
+                        // 流式气泡保留为最后一条消息 - 无需重新加载所有消息
                         if (currentAssistantMessage != null) {
                             renderMarkdown(currentAssistantMessage, assistantResponse);
                         }

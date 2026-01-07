@@ -88,7 +88,7 @@ public class ChatWindow extends JFrame {
         mdParser = Parser.builder(mdOptions).build();
         mdRenderer = HtmlRenderer.builder(mdOptions).build();
 
-        // Get full model with API key
+        // 获取包含 API 密钥的完整模型
         Model fullModel = modelDAO.getModel(model.getUuid());
         if (fullModel != null && fullModel.getApiKey() != null) {
             this.openAIService = new OpenAIService(
@@ -111,19 +111,19 @@ public class ChatWindow extends JFrame {
         add(buildSessionPane(), BorderLayout.WEST);
         add(buildChatPane(), BorderLayout.CENTER);
         
-        // Show warning banner if API is not configured
+        // 如果 API 未配置，显示警告横幅
         if (openAIService == null) {
             JPanel warningPanel = getWarningPanel();
             add(warningPanel, BorderLayout.NORTH);
             
-            // Disable input area
+            // 禁用输入区域
             inputArea.setEnabled(false);
             if (btnSend != null) {
                 btnSend.setEnabled(false);
             }
         }
 
-        // keep bubble widths in sync with viewport size
+        // 保持气泡宽度与视口大小同步
         messageScroll.getViewport().addComponentListener(new ComponentAdapter() {
             @Override public void componentResized(ComponentEvent e) {
                 updateBubbleWidths();
@@ -132,10 +132,10 @@ public class ChatWindow extends JFrame {
 
         loadSessions();
 
-        // Register this window with the WindowManager
+        // 向 WindowManager 注册此窗口
         WindowManager.getInstance().registerWindow(model.getUuid(), this);
 
-        // Unregister and cleanup when closing
+        // 关闭时注销并清理
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -451,7 +451,7 @@ public class ChatWindow extends JFrame {
         String safe = content == null ? "" : content;
         String html = mdRenderer.render(mdParser.parse(safe));
         
-        // Get font family with fallback
+        // 获取带回退的字体系列
         Font labelFont = UIManager.getFont("Label.font");
         String fontFamily = labelFont != null ? labelFont.getFamily() : "SansSerif";
         

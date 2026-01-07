@@ -6,17 +6,15 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * Utility to serialize/deserialize Model objects to a custom binary .mod format.
- * Format (all multibyte integers are big-endian):
- * - Magic header: ASCII "PolyChat Model" (14 bytes)
- * - Version: 1 byte (0x01)
- * - Model count: 4 bytes (int)
- * For each model:
- *   - baseUrl length (2 bytes) + bytes
- *   - apiKey length (2 bytes) + bytes
- *   - modelName length (2 bytes) + bytes
- *   - nickname length (2 bytes) + bytes
- * Payload is compressed with GZIP.
+ * 用于将 Model 对象序列化/反序列化为自定义二进制 .mod 格式的工具。
+ * 格式（所有多字节整数均为大端序）：
+ * - 文件头：ASCII "PolyChat Model" (14 字节)
+ * - 版本：1 字节 (0x01)
+ * - baseUrl 长度 (2 字节) + 字节
+ * - apiKey 长度 (2 字节) + 字节
+ * - modelName 长度 (2 字节) + 字节
+ * - nickname 长度 (2 字节) + 字节
+ * 使用 GZIP 压缩
  */
 public final class ModelIOUtil {
     private static final byte[] MAGIC = "PolyChat Model".getBytes(StandardCharsets.US_ASCII);

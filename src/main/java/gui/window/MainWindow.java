@@ -166,7 +166,7 @@ public class MainWindow extends JFrame {
             return;
         }
 
-        // Open MultiChatWindow with selected models
+        // 打开带有所选模型的多聊天窗口
         MultiChatWindow multiChatWindow = new MultiChatWindow(selectedModels, chatDAO, modelDAO);
         multiChatWindow.setVisible(true);
     }

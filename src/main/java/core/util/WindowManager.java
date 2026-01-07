@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages open ChatWindow instances to prevent duplicate windows for the same model
+ * 管理打开的聊天窗口实例，以防止同一模型出现重复窗口
  */
 public class WindowManager {
     private static final WindowManager instance = new WindowManager();
@@ -20,37 +20,36 @@ public class WindowManager {
     }
 
     /**
-     * Register a chat window for a model
-     * @param modelUuid The model UUID
-     * @param window The chat window
+     * 为模型注册一个聊天窗口
+     * @param modelUuid 模型 UUID
+     * @param window 聊天窗口
      */
     public void registerWindow(String modelUuid, ChatWindow window) {
         openWindows.put(modelUuid, window);
     }
 
     /**
-     * Unregister a chat window when it closes
-     * @param modelUuid The model UUID
+     * 在聊天窗口关闭时注销它
+     * @param modelUuid 模型 UUID
      */
     public void unregisterWindow(String modelUuid) {
         openWindows.remove(modelUuid);
     }
 
     /**
-     * Get the open window for a model, if it exists
-     * @param modelUuid The model UUID
-     * @return The chat window, or null if not open
+     * 获取模型的打开窗口（如果存在）
+     * @param modelUuid 模型 UUID
+     * @return 聊天窗口，如果未打开则返回 null
      */
     public ChatWindow getWindow(String modelUuid) {
         return openWindows.get(modelUuid);
     }
 
     /**
-     * Check if a window is open for a model
-     * @param modelUuid The model UUID
-     * @return true if a window is open, false otherwise
-     * @implNote There's a small race condition where the window could be closed between
-     *           the check and subsequent operations. Callers should handle this gracefully.
+     * 检查模型是否打开了窗口
+     * @param modelUuid 模型 UUID
+     * @return 如果窗口已打开返回 true，否则返回 false
+     * @implNote 在检查和后续操作之间，窗口可能会关闭，存在小的竞争条件。调用者应优雅地处理这种情况。
      */
     public boolean hasWindow(String modelUuid) {
         ChatWindow window = openWindows.get(modelUuid);
@@ -58,9 +57,9 @@ public class WindowManager {
     }
 
     /**
-     * Focus the window for a model if it's open
-     * @param modelUuid The model UUID
-     * @return true if the window was focused, false if no window was open
+     * 如果模型的窗口已打开，则聚焦该窗口
+     * @param modelUuid 模型 UUID
+     * @return 如果窗口被聚焦返回 true，如果没有打开的窗口返回 false
      */
     public boolean focusWindow(String modelUuid) {
         final boolean[] focused = {false};

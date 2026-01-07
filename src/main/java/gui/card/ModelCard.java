@@ -57,12 +57,12 @@ public class ModelCard extends JPanel {
 
         setCardBorder(UIManager.getColor("Component.borderColor"));
 
-        // ================= Header =================
+        // ================= 头部 =================
 
         JPanel header = new JPanel(new BorderLayout(10, 0));
         header.setOpaque(false);
 
-        // Add selection checkbox
+        // 添加选择复选框
         selectCheckbox = new JCheckBox();
         selectCheckbox.setOpaque(false);
         selectCheckbox.setFocusPainted(false);
@@ -88,7 +88,7 @@ public class ModelCard extends JPanel {
         titleBox.add(title);
         titleBox.add(subtitle);
 
-        // Create a panel for icon and titles
+        // 创建图标和标题的面板
         JPanel centerPanel = new JPanel(new BorderLayout(10, 0));
         centerPanel.setOpaque(false);
         centerPanel.add(icon, BorderLayout.WEST);
@@ -97,7 +97,7 @@ public class ModelCard extends JPanel {
         header.add(selectCheckbox, BorderLayout.WEST);
         header.add(centerPanel, BorderLayout.CENTER);
 
-        // ================= Body =================
+        // ================= 主体 =================
 
         JPanel body = new JPanel(new BorderLayout());
         body.setOpaque(false);
@@ -120,7 +120,7 @@ public class ModelCard extends JPanel {
         addRightClickMenu();
     }
 
-    // ================= Hover & Click =================
+    // ================= 悬停和点击 =================
 
     private void addHoverEffect() {
         MouseAdapter hover = new MouseAdapter() {
@@ -149,8 +149,8 @@ public class ModelCard extends JPanel {
             public void mouseClicked(MouseEvent e) {
                 if (e.getButton() != MouseEvent.BUTTON1) return;
                 
-                // Check if click was on checkbox - if so, don't open chat window
-                if (selectCheckbox != null && 
+                // 检查是否点击了复选框 - 如果是，则不打开聊天窗口
+                if (selectCheckbox != null &&
                     selectCheckbox.contains(SwingUtilities.convertPoint(
                         (Component) e.getSource(), e.getPoint(), selectCheckbox))) {
                     return;
@@ -243,16 +243,16 @@ public class ModelCard extends JPanel {
     }
 
     /**
-     * Check if this model card is selected for multi-chat
-     * @return true if selected, false otherwise
+     * 检查是否为多选聊天选择了此模型卡
+     * @return 如果选中则返回 true，否则返回 false
      */
     public boolean isSelected() {
         return selectCheckbox != null && selectCheckbox.isSelected();
     }
 
     /**
-     * Set the selection state of this model card
-     * @param selected true to select, false to deselect
+     * 设置此模型卡的选择状态
+     * @param selected true 选择，false 取消选择
      */
     public void setSelected(boolean selected) {
         if (selectCheckbox != null) {
@@ -261,8 +261,8 @@ public class ModelCard extends JPanel {
     }
 
     /**
-     * Get the model associated with this card
-     * @return the model
+     * 获取与此卡关联的模型
+     * @return 模型
      */
     public Model getModel() {
         return model;
